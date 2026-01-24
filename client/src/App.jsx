@@ -1,15 +1,14 @@
-import { useState } from 'react'
-import Stopwatch from './components/Stopwatch'
+import { Routes, Route } from 'react-router-dom';
+import TimerApp from './components/TimerApp';
+import AdminDashboard from './components/AdminDashboard';
 
 function App() {
   return (
-    <div className="w-full h-screen bg-slate-900 text-white flex flex-col items-center justify-center p-4">
-      <h1 className="text-3xl font-bold mb-8 tracking-tight text-blue-400">
-        Swim Meet Timer
-      </h1>
-      <Stopwatch />
-    </div>
-  )
+    <Routes>
+      <Route path="/" element={<TimerApp />} />
+      <Route path="/admin" element={<AdminDashboard />} />
+    </Routes>
+  );
 }
 
 export default App

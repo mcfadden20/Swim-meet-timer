@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { Play, Pause, RotateCcw, Save } from 'lucide-react';
+import { Play, Pause, RotateCcw, Save, Download } from 'lucide-react';
 import { clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
 
@@ -7,35 +7,160 @@ function cn(...inputs) {
     return twMerge(clsx(inputs));
 }
 
-export default function Stopwatch() {
+export default function Stopwatch({ meetId, orgName }) {
+    // State
     const [isRunning, setIsRunning] = useState(false);
     const [elapsedTime, setElapsedTime] = useState(0);
+    const [reviewMode, setReviewMode] = useState(false); // New: Review state after stop
+
+    // Metadata State
+    const [eventNum, setEventNum] = useState(1);
+    const [heatNum, setHeatNum] = useState(1);
+    const [laneNum, setLaneNum] = useState(() => {
+        const saved = localStorage.getItem('swim-lane');
+        return saved ? Number(saved) : 1;
+    });
+    const [isNoShow, setIsNoShow] = useState(false);
+
+    // Placeholder Swimmer Data
+    const [swimmer, setSwimmer] = useState({ name: "Swimmer Name", entry: "00:00.00" });
+
     const startTimeRef = useRef(0);
     const rafRef = useRef(null);
 
+    // Persist Lane
     useEffect(() => {
-        if (isRunning) {
-            startTimeRef.current = performance.now() - elapsedTime;
-            const loop = () => {
-                const now = performance.now();
-                setElapsedTime(now - startTimeRef.current);
-                rafRef.current = requestAnimationFrame(loop);
-            };
-            rafRef.current = requestAnimationFrame(loop);
-        } else {
-            cancelAnimationFrame(rafRef.current);
-        }
+        localStorage.setItem('swim-lane', laneNum);
+        // Mock fetch swimmer data when details change
+        setSwimmer({
+            name: `Swimmer (Ln ${laneNum})`,
+            entry: `${(eventNum * 10) + heatNum}:00.00`
+        });
+    }, [laneNum, eventNum, heatNum]);
 
-        return () => cancelAnimationFrame(rafRef.current);
-    }, [isRunning]);
-
-    const handleStartStop = () => {
-        setIsRunning(!isRunning);
+    // Wake Lock & Haptics Util
+    const enableWakeLock = async () => {
+        try {
+            if ('wakeLock' in navigator) {
+                await navigator.wakeLock.request('screen');
+            }
+        } catch (err) { console.error('WakeLock Error', err); }
     };
 
-    const handleReset = () => {
+    const triggerHaptic = () => {
+        if (navigator.vibrate) navigator.vibrate(50);
+    };
+
+    // Persistent Wake Lock on Mount
+    useEffect(() => {
+        enableWakeLock();
+        // Re-request wake lock if visibility changes (e.g. user tabs out and back)
+        const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') enableWakeLock();
+        };
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
+    }, []);
+
+    // Start Interaction
+    const handleStart = () => {
+        setIsRunning(true);
+        setReviewMode(false);
+        triggerHaptic();
+        startTimeRef.current = performance.now() - elapsedTime;
+
+        // Animation Loop
+        const loop = () => {
+            const now = performance.now();
+            setElapsedTime(now - startTimeRef.current);
+            rafRef.current = requestAnimationFrame(loop);
+        };
+        rafRef.current = requestAnimationFrame(loop);
+    };
+
+    // Stop Interaction (Just Stop, don't save yet)
+    const handleStop = () => {
         setIsRunning(false);
-        setElapsedTime(0);
+        setReviewMode(true); // Enter Review Mode
+        triggerHaptic();
+        cancelAnimationFrame(rafRef.current);
+    };
+
+    // Save & Advance Interaction
+    const handleSaveAndNext = async () => {
+        try {
+            const payload = {
+                meet_id: meetId,
+                event_number: Number(eventNum),
+                heat_number: Number(heatNum),
+                lane: Number(laneNum),
+                swimmer_name: swimmer?.name || "",
+                time_ms: Math.floor(elapsedTime), // Ensure integer
+                is_no_show: false
+            };
+
+            console.log("Saving Payload:", payload); // Debugging
+
+            const response = await fetch('/api/times', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (response.ok) {
+                // Auto-Advance
+                if (heatNum >= 1) setHeatNum(h => Number(h) + 1); // Force Number
+
+                // Reset
+                setElapsedTime(0);
+                setIsRunning(false);
+                setReviewMode(false);
+                setIsNoShow(false);
+            } else {
+                const err = await response.json();
+                alert(`Failed to save! Server says: ${err.error || 'Unknown error'}`);
+            }
+        } catch (error) {
+            console.error('Error saving:', error);
+            alert('Connection/Save Error. Check console.');
+        }
+    };
+
+    // Reset current race
+    const handleReset = () => {
+        if (confirm('Reset timer? This will discard the current time.')) {
+            setIsRunning(false);
+            setReviewMode(false);
+            setElapsedTime(0);
+            cancelAnimationFrame(rafRef.current);
+        }
+    };
+
+    // Manual No Show Save
+    const handleNoShowSave = async () => {
+        try {
+            const response = await fetch('/api/times', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    meet_id: meetId,
+                    event_number: Number(eventNum),
+                    heat_number: Number(heatNum),
+                    lane: Number(laneNum),
+                    time_ms: 0,
+                    is_no_show: true
+                })
+            });
+
+            if (response.ok) {
+                if (heatNum >= 1) setHeatNum(h => Number(h) + 1);
+                setIsNoShow(false);
+                setElapsedTime(0);
+                setReviewMode(false);
+            }
+        } catch (error) {
+            console.error('Error saving No Show:', error);
+        }
     };
 
     const formatTime = (ms) => {
@@ -46,40 +171,115 @@ export default function Stopwatch() {
     };
 
     return (
-        <div className="flex flex-col items-center gap-6 w-full max-w-sm">
-            {/* Time Display */}
-            <div className="bg-slate-800 rounded-2xl p-8 w-full flex justify-center shadow-xl border border-slate-700">
-                <span className="text-6xl font-mono font-bold tracking-wider text-slate-100 tabular-nums">
+        <div className="flex flex-col gap-4 w-full max-w-md h-[calc(100vh-80px)]">
+
+            {/* Status Bar */}
+            <div className={cn(
+                "w-full py-2 text-center text-xs font-bold tracking-widest uppercase border-b-2 transition-colors",
+                isRunning ? "border-red-500 text-red-500 animate-pulse" :
+                    (reviewMode ? "border-yellow-400 text-yellow-400" : "border-cyan-400 text-cyan-400")
+            )}>
+                {isRunning ? "RACE IN PROGRESS" : (reviewMode ? "REVIEW & SAVE" : (isNoShow ? "CONFIRM NO SHOW" : (orgName || "READY TO RACE")))}
+            </div>
+
+            {/* Inputs - Compact Row - FIXED ARROWS AND TYPES */}
+            <div className="flex justify-between gap-2 bg-navy-800 p-2 rounded-lg border border-navy-800">
+                {['Event', 'Heat', 'Lane'].map((label, idx) => {
+                    const val = idx === 0 ? eventNum : idx === 1 ? heatNum : laneNum;
+                    const setVal = idx === 0 ? setEventNum : idx === 1 ? setHeatNum : setLaneNum;
+                    return (
+                        <div key={label} className="flex flex-col items-center w-1/3">
+                            <span className="text-[10px] text-cyan-400 uppercase font-bold tracking-wider mb-1">{label}</span>
+                            <div className="flex items-center w-full">
+                                <button className="p-2 text-slate-500 hover:text-white" onClick={() => setVal(v => Math.max(1, Number(v) - 1))}>-</button>
+                                <input
+                                    type="number"
+                                    value={val}
+                                    onChange={(e) => setVal(Number(e.target.value))}
+                                    className="no-spinners w-full bg-transparent text-center text-xl font-bold text-white outline-none"
+                                />
+                                <button className="p-2 text-slate-500 hover:text-white" onClick={() => setVal(v => Number(v) + 1)}>+</button>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
+
+            {/* Swimmer Info Placeholder */}
+            {swimmer && (
+                <div className="bg-navy-800/50 rounded-lg p-2 text-center border border-white/5">
+                    <div className="text-white font-bold">{swimmer.name}</div>
+                    <div className="text-xs text-slate-500">Seed: {swimmer.entry}</div>
+                </div>
+            )}
+
+            {/* Main Timer Display */}
+            <div className="text-center py-2">
+                <span className={cn(
+                    "text-7xl font-mono font-bold tracking-tighter tabular-nums text-white",
+                    isNoShow && "line-through text-red-500 opacity-50"
+                )}>
                     {formatTime(elapsedTime)}
                 </span>
             </div>
 
-            {/* Controls */}
-            <div className="flex gap-4 w-full">
+            {/* MEGA BUTTON - DYNAMIC STATES */}
+            {!isNoShow && (
                 <button
-                    onClick={handleStartStop}
+                    onClick={isRunning ? handleStop : (reviewMode ? handleSaveAndNext : handleStart)}
                     className={cn(
-                        "flex-1 h-16 rounded-xl flex items-center justify-center text-xl font-bold transition-all active:scale-95",
+                        "w-full flex-1 min-h-[160px] rounded-2xl flex flex-col items-center justify-center gap-2 transition-all active:scale-95 touch-manipulation",
                         isRunning
-                            ? "bg-red-500 hover:bg-red-600 text-white shadow-lg shadow-red-500/30"
-                            : "bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/30"
+                            ? "bg-red-500 border-2 border-red-500 shadow-[0_0_30px_rgba(239,68,68,0.4)]"
+                            : (reviewMode
+                                ? "bg-yellow-400 text-navy-900 shadow-lg shadow-yellow-400/20"
+                                : "bg-cyan-400 text-navy-900 shadow-lg shadow-cyan-400/20")
                     )}
                 >
-                    {isRunning ? <Pause className="w-8 h-8" /> : <Play className="w-8 h-8 pl-1" />}
+                    {isRunning
+                        ? (<><Pause className="w-12 h-12 text-white" /><span className="text-3xl font-black tracking-widest text-white">STOP</span></>)
+                        : (reviewMode
+                            ? (<><Save className="w-10 h-10" /><span className="text-2xl font-black tracking-widest">SAVE & NEXT</span></>)
+                            : (<><Play className="w-12 h-12" /><span className="text-3xl font-black tracking-widest">START</span></>)
+                        )
+                    }
                 </button>
+            )}
 
+            {/* No Show Handling */}
+            {isNoShow && (
                 <button
-                    onClick={handleReset}
-                    className="h-16 w-16 rounded-xl bg-slate-700 hover:bg-slate-600 text-slate-300 flex items-center justify-center transition-all active:scale-95"
+                    onClick={handleNoShowSave}
+                    className="w-full flex-1 min-h-[160px] rounded-2xl flex flex-col items-center justify-center gap-2 bg-red-900/50 border-2 border-red-500 text-red-500"
                 >
-                    <RotateCcw className="w-6 h-6" />
+                    <span className="text-2xl font-black tracking-widest">CONFIRM NO SHOW</span>
+                    <span className="text-xs">SAVES AS 0:00 & ADVANCES HEAT</span>
                 </button>
+            )}
+
+            {/* Secondary Utils */}
+            <div className="grid grid-cols-2 gap-3 shrink-0 mt-4">
+                {reviewMode ? (
+                    <button onClick={handleReset} className="rounded-xl font-bold text-sm tracking-wider uppercase border border-white/10 text-slate-400 hover:text-white py-4">
+                        RESET (NO SAVE)
+                    </button>
+                ) : (
+                    <button
+                        onClick={() => setIsNoShow(!isNoShow)}
+                        className={cn(
+                            "rounded-xl font-bold text-sm tracking-wider uppercase border text-slate-400 hover:text-white py-4 transition-all",
+                            isNoShow ? "bg-slate-800 text-white border-white/20" : "border-white/10"
+                        )}
+                    >
+                        {isNoShow ? "Cancel No Show" : "Mark No Show"}
+                    </button>
+                )}
+
+                <a href="/api/export" target="_blank" className="flex items-center justify-center gap-2 rounded-xl border border-white/10 text-slate-400 hover:text-cyan-400 text-sm font-bold uppercase tracking-wider">
+                    <Download className="w-4 h-4" /> Export CSV
+                </a>
             </div>
 
-            <button className="w-full bg-blue-600 hover:bg-blue-500 text-white font-semibold py-4 rounded-xl flex items-center justify-center gap-2 transition-all opacity-50 cursor-not-allowed">
-                <Save className="w-5 h-5" />
-                Save Result
-            </button>
         </div>
     );
 }
