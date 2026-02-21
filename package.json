@@ -2,9 +2,13 @@
   "name": "swim-meet-timer",
   "version": "1.0.0",
   "private": true,
+  "workspaces": [
+    "client",
+    "server"
+  ],
   "scripts": {
-    "build": "cd client && npm install && npm run build && cd ../server && npm install",
-    "start": "cd server && npm start"
+    "build": "npm run build --workspace=client",
+    "start": "npm start --workspace=swim-meet-server"
   },
   "dependencies": {
     "pdf-parse": "^2.4.5",
