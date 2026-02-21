@@ -104,9 +104,17 @@ export default function AdminDashboard() {
                                         LIVE INCOMING DATA
                                     </span>
                                 </div>
-                                <a href="/api/export" target="_blank" className="text-xs font-bold text-slate-400 hover:text-white flex items-center gap-1">
-                                    <Download className="w-4 h-4" /> EXPORT ALL CSV
-                                </a>
+                                <div className="flex gap-2">
+                                    <a href="/api/export" target="_blank" className="text-xs font-bold text-slate-400 hover:text-white flex items-center gap-1 border border-white/10 p-2 rounded">
+                                        <Download className="w-4 h-4" /> CSV
+                                    </a>
+                                    <a href="/api/export/sd3" target="_blank" className="text-xs font-bold text-cyan-400 hover:text-white flex items-center gap-1 border border-cyan-400 p-2 rounded">
+                                        <Download className="w-4 h-4" /> SD3 (SwimTopia)
+                                    </a>
+                                    <a href="/api/export/audit" target="_blank" className="text-xs font-bold text-slate-400 hover:text-white flex items-center gap-1 border border-white/10 p-2 rounded">
+                                        <Download className="w-4 h-4" /> AUDIT LOGS
+                                    </a>
+                                </div>
                             </div>
 
                             <div className="flex-1 overflow-y-auto">

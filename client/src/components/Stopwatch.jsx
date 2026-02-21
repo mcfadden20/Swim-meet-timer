@@ -7,6 +7,43 @@ function cn(...inputs) {
     return twMerge(clsx(inputs));
 }
 
+// Audit Log Helper
+const logAudit = (meetId, action, payload) => {
+    try {
+        const body = {
+            meet_id: meetId,
+            action,
+            payload,
+            client_timestamp: Date.now()
+        };
+        // Use sendBeacon if available for guaranteed sending on unload, else fetch
+        if (navigator.sendBeacon) {
+            const blob = new Blob([JSON.stringify(body)], { type: 'application/json' });
+            navigator.sendBeacon('/api/audit', blob);
+        } else {
+            fetch('/api/audit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            }).catch(e => console.error("Audit log failed", e));
+        }
+    } catch (e) {
+        console.error("Audit error", e);
+    }
+};
+
+// Offline Queue Helper
+const saveOffline = (payload) => {
+    try {
+        const queue = JSON.parse(localStorage.getItem('offline_queue') || '[]');
+        queue.push({ ...payload, offline_created_at: Date.now() });
+        localStorage.setItem('offline_queue', JSON.stringify(queue));
+        alert('Offline: Result saved locally. Will sync when online.');
+    } catch (e) {
+        alert('Critical: Could not save offline result!');
+    }
+};
+
 export default function Stopwatch({ meetId, orgName }) {
     // State
     const [isRunning, setIsRunning] = useState(false);
@@ -51,6 +88,45 @@ export default function Stopwatch({ meetId, orgName }) {
         if (navigator.vibrate) navigator.vibrate(50);
     };
 
+    // Sync Offline Queue
+    useEffect(() => {
+        const syncQueue = async () => {
+            if (!navigator.onLine) return;
+            const queue = JSON.parse(localStorage.getItem('offline_queue') || '[]');
+            if (queue.length === 0) return;
+
+            console.log(`Syncing ${queue.length} offline records...`);
+            const remaining = [];
+
+            for (const item of queue) {
+                try {
+                    const res = await fetch('/api/times', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(item)
+                    });
+                    if (!res.ok) throw new Error('Sync failed');
+                } catch (e) {
+                    remaining.push(item);
+                }
+            }
+
+            localStorage.setItem('offline_queue', JSON.stringify(remaining));
+            if (remaining.length === 0) {
+                console.log("Sync Complete");
+            }
+        };
+
+        window.addEventListener('online', syncQueue);
+        const interval = setInterval(syncQueue, 30000); // Try every 30s
+        syncQueue(); // Try on mount
+
+        return () => {
+            window.removeEventListener('online', syncQueue);
+            clearInterval(interval);
+        };
+    }, []);
+
     // Persistent Wake Lock on Mount
     useEffect(() => {
         enableWakeLock();
@@ -67,6 +143,7 @@ export default function Stopwatch({ meetId, orgName }) {
         setIsRunning(true);
         setReviewMode(false);
         triggerHaptic();
+        logAudit(meetId, 'START', { eventNum, heatNum, laneNum });
         startTimeRef.current = performance.now() - elapsedTime;
 
         // Animation Loop
@@ -83,22 +160,25 @@ export default function Stopwatch({ meetId, orgName }) {
         setIsRunning(false);
         setReviewMode(true); // Enter Review Mode
         triggerHaptic();
+        logAudit(meetId, 'STOP', { eventNum, heatNum, laneNum, time_ms: elapsedTime });
         cancelAnimationFrame(rafRef.current);
     };
 
     // Save & Advance Interaction
     const handleSaveAndNext = async () => {
-        try {
-            const payload = {
-                meet_id: meetId,
-                event_number: Number(eventNum),
-                heat_number: Number(heatNum),
-                lane: Number(laneNum),
-                swimmer_name: swimmer?.name || "",
-                time_ms: Math.floor(elapsedTime), // Ensure integer
-                is_no_show: false
-            };
+        const payload = {
+            meet_id: meetId,
+            event_number: Number(eventNum),
+            heat_number: Number(heatNum),
+            lane: Number(laneNum),
+            swimmer_name: swimmer?.name || "",
+            time_ms: Math.floor(elapsedTime), // Ensure integer
+            is_no_show: false
+        };
 
+        logAudit(meetId, 'SAVE', payload);
+
+        try {
             console.log("Saving Payload:", payload); // Debugging
 
             const response = await fetch('/api/times', {
@@ -108,27 +188,27 @@ export default function Stopwatch({ meetId, orgName }) {
             });
 
             if (response.ok) {
-                // Auto-Advance
-                if (heatNum >= 1) setHeatNum(h => Number(h) + 1); // Force Number
-
-                // Reset
-                setElapsedTime(0);
-                setIsRunning(false);
-                setReviewMode(false);
-                setIsNoShow(false);
+                // Success
             } else {
-                const err = await response.json();
-                alert(`Failed to save! Server says: ${err.error || 'Unknown error'}`);
+                throw new Error('Server Error');
             }
         } catch (error) {
             console.error('Error saving:', error);
-            alert('Connection/Save Error. Check console.');
+            saveOffline(payload);
         }
+
+        // Always Advance (Optimistic)
+        if (heatNum >= 1) setHeatNum(h => Number(h) + 1); // Force Number
+        setElapsedTime(0);
+        setIsRunning(false);
+        setReviewMode(false);
+        setIsNoShow(false);
     };
 
     // Reset current race
     const handleReset = () => {
         if (confirm('Reset timer? This will discard the current time.')) {
+            logAudit(meetId, 'RESET', { eventNum, heatNum, laneNum, timeDiscarded: elapsedTime });
             setIsRunning(false);
             setReviewMode(false);
             setElapsedTime(0);
@@ -138,29 +218,33 @@ export default function Stopwatch({ meetId, orgName }) {
 
     // Manual No Show Save
     const handleNoShowSave = async () => {
+        const payload = {
+            meet_id: meetId,
+            event_number: Number(eventNum),
+            heat_number: Number(heatNum),
+            lane: Number(laneNum),
+            time_ms: 0,
+            is_no_show: true
+        };
+
+        logAudit(meetId, 'NO_SHOW', payload);
+
         try {
             const response = await fetch('/api/times', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    meet_id: meetId,
-                    event_number: Number(eventNum),
-                    heat_number: Number(heatNum),
-                    lane: Number(laneNum),
-                    time_ms: 0,
-                    is_no_show: true
-                })
+                body: JSON.stringify(payload)
             });
-
-            if (response.ok) {
-                if (heatNum >= 1) setHeatNum(h => Number(h) + 1);
-                setIsNoShow(false);
-                setElapsedTime(0);
-                setReviewMode(false);
-            }
+            if (!response.ok) throw new Error('Server Error');
         } catch (error) {
             console.error('Error saving No Show:', error);
+            saveOffline(payload);
         }
+
+        if (heatNum >= 1) setHeatNum(h => Number(h) + 1);
+        setIsNoShow(false);
+        setElapsedTime(0);
+        setReviewMode(false);
     };
 
     const formatTime = (ms) => {
@@ -179,7 +263,7 @@ export default function Stopwatch({ meetId, orgName }) {
                 isRunning ? "border-red-500 text-red-500 animate-pulse" :
                     (reviewMode ? "border-yellow-400 text-yellow-400" : "border-cyan-400 text-cyan-400")
             )}>
-                {isRunning ? "RACE IN PROGRESS" : (reviewMode ? "REVIEW & SAVE" : (isNoShow ? "CONFIRM NO SHOW" : (orgName || "READY TO RACE")))}
+                {isRunning ? "RACE IN PROGRESS" : (reviewMode ? "REVIEW & SAVE" : (isNoShow ? "CONFIRM NO SHOW" : "PRESS TO START"))}
             </div>
 
             {/* Inputs - Compact Row - FIXED ARROWS AND TYPES */}

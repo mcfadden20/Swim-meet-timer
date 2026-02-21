@@ -57,6 +57,18 @@ db.serialize(() => {
       });
     }
   });
+
+  // 4. Audit Logs
+  db.run(`
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      meet_id INTEGER,
+      action TEXT NOT NULL,
+      payload TEXT,
+      client_timestamp INTEGER,
+      server_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
 });
 
 export default db;

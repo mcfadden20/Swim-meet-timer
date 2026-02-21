@@ -3,6 +3,7 @@ import cors from 'cors';
 import db from './db.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { generateSD3 } from './utils/sd3.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -58,6 +59,18 @@ app.post('/api/times', (req, res) => {
         console.log('[POST /api/times] Success, ID:', this.lastID);
         res.json({ id: this.lastID, success: true });
     });
+});
+
+app.post('/api/audit', (req, res) => {
+    const { meet_id, action, payload, client_timestamp } = req.body;
+    db.run(
+        'INSERT INTO audit_logs (meet_id, action, payload, client_timestamp) VALUES (?, ?, ?, ?)',
+        [meet_id, action, JSON.stringify(payload), client_timestamp],
+        function (err) {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ success: true });
+        }
+    );
 });
 
 // --- Admin API ---
@@ -128,6 +141,44 @@ app.get('/api/export', (req, res) => {
 
         res.header('Content-Type', 'text/csv');
         res.attachment('swim-meet-results.csv');
+        res.send(csvContent);
+    });
+});
+
+app.get('/api/export/sd3', (req, res) => {
+    // 1. Get Meet Info (Just picking the first active one or similar for now, usually needs meet_id context)
+    // For demo/simplicity, we'll grab the most recent meet and its times.
+    db.get('SELECT * FROM meets ORDER BY created_at DESC LIMIT 1', [], (err, meet) => {
+        if (err || !meet) return res.status(404).send('No meet found');
+
+        db.all('SELECT * FROM time_entries WHERE meet_id = ? ORDER BY event_number, heat_number, lane', [meet.id], (err, rows) => {
+            if (err) return res.status(500).send('Error fetching entries');
+
+            const sd3Content = generateSD3(meet, rows);
+            res.header('Content-Type', 'text/plain');
+            res.attachment(`${meet.name.replace(/\s+/g, '_')}.sd3`);
+            res.send(sd3Content);
+        });
+    });
+});
+
+app.get('/api/export/audit', (req, res) => {
+    db.all('SELECT * FROM audit_logs ORDER BY server_timestamp DESC', [], (err, rows) => {
+        if (err) return res.status(500).send('Error fetching logs');
+
+        const headers = ['ID', 'Meet ID', 'Action', 'Client Time', 'Server Time', 'Payload'];
+        const csvRows = rows.map(row => [
+            row.id,
+            row.meet_id,
+            row.action,
+            new Date(row.client_timestamp).toISOString(),
+            row.server_timestamp,
+            `"${(row.payload || '').replace(/"/g, '""')}"`
+        ].join(','));
+
+        const csvContent = [headers.join(','), ...csvRows].join('\n');
+        res.header('Content-Type', 'text/csv');
+        res.attachment('audit_logs.csv');
         res.send(csvContent);
     });
 });
