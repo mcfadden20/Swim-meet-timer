@@ -6,8 +6,6 @@ const https = require('https');
 const http = require('http');
 
 const POLLING_INTERVAL = 120000; // 120 seconds
-// For testing locally, allow overriding via command line or default to localhost
-const API_BASE_URL = process.argv.includes('--local') ? 'http://localhost:3000' : 'https://swim-meet-timer.com'; // User would change this to their actual DO App URL
 
 const rl = readline.createInterface({
     input: process.stdin,
@@ -38,7 +36,7 @@ async function selectFolder() {
             `;
 
             console.log("Opening Windows folder selection dialog...");
-            exec(`powershell -NoProfile -Command "${psCommand}"`, (error, stdout) => {
+            exec(`powershell -Sta -NoProfile -Command "${psCommand}"`, (error, stdout) => {
                 if (error) {
                     console.log("Failed to open native dialog. You will need to enter the path manually.");
                     resolve(null);
@@ -73,10 +71,11 @@ function request(url, options = {}) {
     });
 }
 
-async function startSyncLoop(accessCode, adminPin, targetDir) {
+async function startSyncLoop(apiUrl, accessCode, adminPin, targetDir) {
     console.log(`\n===========================================`);
     console.log(`[SYNCHRONIZER ACTIVE]`);
     console.log(`Target Directory: ${targetDir}`);
+    console.log(`Server URL:       ${apiUrl}`);
     console.log(`Polling Interval: ${POLLING_INTERVAL / 1000} seconds`);
     console.log(`Press Ctrl+C to exit.`);
     console.log(`===========================================\n`);
@@ -84,7 +83,7 @@ async function startSyncLoop(accessCode, adminPin, targetDir) {
     const poll = async () => {
         process.stdout.write(`[${new Date().toLocaleTimeString()}] Checking for new times... `);
         try {
-            const url = `${API_BASE_URL}/api/sync/pending-files?access_code=${accessCode}&admin_pin=${adminPin}`;
+            const url = `${apiUrl}/api/sync/pending-files?access_code=${accessCode}&admin_pin=${adminPin}`;
             const res = await request(url);
 
             if (!res.ok) {
@@ -119,7 +118,7 @@ async function startSyncLoop(accessCode, adminPin, targetDir) {
 
             // Send receipt
             if (successfulWrites.length > 0) {
-                const receiptRes = await request(`${API_BASE_URL}/api/sync/receipt`, {
+                const receiptRes = await request(`${apiUrl}/api/sync/receipt`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
@@ -151,6 +150,11 @@ async function main() {
     console.log("   Maestro Cloud-to-Local Sync Bridge      ");
     console.log("===========================================\n");
 
+    let apiUrl = await question("Enter the DO App URL (or leave blank for http://localhost:3000):\n> ");
+    apiUrl = apiUrl.trim() || 'http://localhost:3000';
+    // Trim trailing slashes from API URL
+    apiUrl = apiUrl.replace(/\/+$/, '');
+
     const accessCode = await question("Enter the 6-character Meet Code: ");
     const adminPin = await question("Enter the Admin PIN: ");
 
@@ -172,7 +176,7 @@ async function main() {
     }
 
     rl.close();
-    startSyncLoop(accessCode.trim(), adminPin.trim(), targetDir.trim());
+    startSyncLoop(apiUrl, accessCode.trim(), adminPin.trim(), targetDir.trim());
 }
 
 main();

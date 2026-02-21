@@ -67,7 +67,7 @@ export default function Stopwatch({ meetId, orgName }) {
     useEffect(() => {
         const fetchMaestro = async () => {
             try {
-                const res = await fetch('/api/maestro/status');
+                const res = await fetch(`/api/maestro/status?meet_id=${meetId}`);
                 if (res.ok) {
                     const data = await res.json();
                     if (data.sessionSummary && data.sessionSummary.length > 0) {
