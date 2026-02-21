@@ -1,0 +1,1 @@
+const fs=require('fs');const vbs='Set objShell = CreateObject(\" "Shell.Application\)\\nSet objFolder = objShell.BrowseForFolder(0, \Select" the Meet Maestro Data "Directory\, 0, 0)\\nIf Not objFolder Is Nothing Then\\nWScript.Echo objFolder.Self.Path\\nEnd If';fs.writeFileSync('temp.vbs', vbs);require('child_process').exec('cscript //nologo temp.vbs', (err, stdout) =;})  
