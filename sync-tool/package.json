@@ -2,6 +2,7 @@
     "name": "maestro-sync",
     "version": "1.0.0",
     "description": "Windows Background Sync Tool for Swim Meet Timer",
+    "author": "Michael McFadden",
     "main": "sync.js",
     "bin": "sync.js",
     "scripts": {

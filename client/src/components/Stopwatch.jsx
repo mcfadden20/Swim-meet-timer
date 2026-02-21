@@ -114,8 +114,8 @@ export default function Stopwatch({ meetId, orgName }) {
         } catch (err) { console.error('WakeLock Error', err); }
     };
 
-    const triggerHaptic = () => {
-        if (navigator.vibrate) navigator.vibrate(50);
+    const triggerHaptic = (pattern = 50) => {
+        if (navigator.vibrate) navigator.vibrate(pattern);
     };
 
     // Sync Offline Queue
@@ -172,7 +172,7 @@ export default function Stopwatch({ meetId, orgName }) {
     const handleStart = () => {
         setIsRunning(true);
         setReviewMode(false);
-        triggerHaptic();
+        triggerHaptic(50);
         logAudit(meetId, 'START', { eventNum, heatNum, laneNum });
         startTimeRef.current = performance.now() - elapsedTime;
 
@@ -189,14 +189,14 @@ export default function Stopwatch({ meetId, orgName }) {
     const handleStop = () => {
         setIsRunning(false);
         setReviewMode(true); // Enter Review Mode
-        triggerHaptic();
+        triggerHaptic(50);
         logAudit(meetId, 'STOP', { eventNum, heatNum, laneNum, time_ms: elapsedTime });
         cancelAnimationFrame(rafRef.current);
     };
 
     // Save & Advance Interaction
     const handleSaveAndNext = async () => {
-        triggerHaptic(); // Vibrate on Save
+        triggerHaptic([50, 50, 100]); // Distinct double-buzz on Save
         const payload = {
             meet_id: meetId,
             event_number: Number(eventNum),
@@ -231,7 +231,7 @@ export default function Stopwatch({ meetId, orgName }) {
             const currentEventIdx = maestroEvents.findIndex(ev => Number(ev.eventNumber) === Number(eventNum));
             if (currentEventIdx !== -1) {
                 const currentEvent = maestroEvents[currentEventIdx];
-                if (Number(heatNum) >= currentEvent.heatCount) {
+                if (Number(heatNum) >= Number(currentEvent.heatCount)) {
                     // Advance Event
                     if (currentEventIdx + 1 < maestroEvents.length) {
                         setEventNum(Number(maestroEvents[currentEventIdx + 1].eventNumber));
@@ -305,7 +305,7 @@ export default function Stopwatch({ meetId, orgName }) {
     };
 
     return (
-        <div className="flex flex-col gap-4 w-full max-w-md h-[calc(100vh-80px)]">
+        <div className="flex flex-col gap-4 w-full max-w-md h-[calc(100vh-80px)] pb-32">
 
             {/* Status Bar */}
             <div className={cn(
@@ -325,7 +325,7 @@ export default function Stopwatch({ meetId, orgName }) {
                         <select
                             value={eventNum}
                             onChange={(e) => setEventNum(e.target.value)}
-                            className="w-full bg-navy-900 border border-white/10 rounded-lg p-2 text-center text-lg font-bold text-white outline-none"
+                            className="w-full bg-navy-900 border border-white/10 rounded-lg p-2 text-left text-sm font-bold text-white outline-none"
                         >
                             {maestroEvents.map(ev => (
                                 <option key={ev.eventNumber} value={ev.eventNumber}>

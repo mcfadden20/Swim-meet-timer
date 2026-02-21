@@ -1,15 +1,22 @@
 import { useState, useEffect } from 'react';
 import { ArrowLeft, RefreshCw, CheckCircle, XCircle } from 'lucide-react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 
 export default function AdminMaestro() {
+    const [searchParams, setSearchParams] = useSearchParams();
+    const meetId = searchParams.get('meet_id');
+
     const [status, setStatus] = useState(null);
     const [loading, setLoading] = useState(true);
 
     const fetchStatus = async () => {
+        if (!meetId) {
+            setLoading(false);
+            return;
+        }
         setLoading(true);
         try {
-            const res = await fetch('/api/maestro/status');
+            const res = await fetch(`/api/maestro/status?meet_id=${meetId}`);
             if (res.ok) {
                 const data = await res.json();
                 setStatus(data);
@@ -25,7 +32,7 @@ export default function AdminMaestro() {
         fetchStatus();
         const interval = setInterval(fetchStatus, 3000);
         return () => clearInterval(interval);
-    }, []);
+    }, [meetId]);
 
     const [uploading, setUploading] = useState(false);
     const [uploadSuccess, setUploadSuccess] = useState(false);
@@ -46,8 +53,10 @@ export default function AdminMaestro() {
                 body: formData
             });
             if (res.ok) {
+                const data = await res.json();
+                setSearchParams({ meet_id: data.meet_id });
                 setUploadSuccess(true);
-                fetchStatus();
+                // fetchStatus handles the change via useEffect dependency
                 setTimeout(() => setUploadSuccess(false), 5000);
             } else {
                 alert('Upload failed. Please try again.');

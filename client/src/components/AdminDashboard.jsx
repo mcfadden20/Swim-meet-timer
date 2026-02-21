@@ -8,10 +8,9 @@ export default function AdminDashboard() {
     const [loading, setLoading] = useState(false);
     const [maestroStatus, setMaestroStatus] = useState(null);
 
-    // Fetch Meets and Maestro Status on Mount
+    // Fetch Meets on Mount
     useEffect(() => {
         fetchMeets();
-        fetchMaestroStatus();
     }, []);
 
     // Poll for Live Results if a meet is selected
@@ -20,9 +19,11 @@ export default function AdminDashboard() {
 
         // Initial fetch
         fetchResults(selectedMeet.id);
+        fetchMaestroStatus(selectedMeet.id);
 
         const interval = setInterval(() => {
             fetchResults(selectedMeet.id);
+            fetchMaestroStatus(selectedMeet.id);
         }, 5000); // 5s poll
 
         return () => clearInterval(interval);
@@ -40,31 +41,16 @@ export default function AdminDashboard() {
         setLiveResults(data.results);
     };
 
-    const fetchMaestroStatus = async () => {
+    const fetchMaestroStatus = async (meetId) => {
+        if (!meetId) return;
         try {
-            const res = await fetch('/api/maestro/status');
+            const res = await fetch(`/api/maestro/status?meet_id=${meetId}`);
             if (res.ok) {
                 const data = await res.json();
                 setMaestroStatus(data);
             }
         } catch (e) {
             console.error("Failed to fetch Maestro status", e);
-        }
-    };
-
-    const handleCreateMeet = async () => {
-        const name = prompt("Enter Meet Name (e.g. Winter Invitational):");
-        if (!name) return;
-
-        const res = await fetch('/api/admin/meets', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ name })
-        });
-
-        if (res.ok) {
-            fetchMeets();
-            alert('Meet Created!');
         }
     };
 
@@ -81,12 +67,9 @@ export default function AdminDashboard() {
             <header className="flex justify-between items-center pb-4 border-b border-navy-800 shrink-0">
                 <h1 className="text-2xl font-bold tracking-tight text-white">ADMIN<span className="text-cyan-400">DASHBOARD</span></h1>
                 <div className="flex gap-2">
-                    <a href="/admin/maestro" className="flex items-center gap-2 bg-navy-800 border border-white/10 text-white px-4 py-2 rounded-lg font-bold hover:bg-navy-700">
-                        MAESTRO SETTINGS
+                    <a href="/admin/maestro" className="flex items-center gap-2 bg-cyan-400 text-navy-900 px-4 py-2 rounded-lg font-bold hover:bg-cyan-300">
+                        <Plus className="w-4 h-4" /> CREATE NEW MEET (MAESTRO)
                     </a>
-                    <button onClick={handleCreateMeet} className="flex items-center gap-2 bg-cyan-400 text-navy-900 px-4 py-2 rounded-lg font-bold hover:bg-cyan-300">
-                        <Plus className="w-4 h-4" /> NEW MEET
-                    </button>
                 </div>
             </header>
 
@@ -134,7 +117,10 @@ export default function AdminDashboard() {
                                         </div>
                                     )}
                                 </div>
-                                <div className="text-right mt-3">
+                                <div className="flex justify-between items-center mt-3 pt-3 border-t border-white/5">
+                                    <a href={`/admin/maestro?meet_id=${meet.id}`} onClick={(e) => e.stopPropagation()} className="text-[10px] text-cyan-400 hover:text-cyan-300 uppercase font-bold tracking-widest bg-navy-900 border border-cyan-400/20 px-2 py-1 rounded">
+                                        Maestro Settings
+                                    </a>
                                     <span className="text-xs text-slate-500">{new Date(meet.created_at).toLocaleDateString()}</span>
                                 </div>
                             </button>

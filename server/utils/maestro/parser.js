@@ -61,8 +61,8 @@ export const parseSessionSummary = (filePath) => {
             // Very simple CSV parser, assuming 5 columns as per protocol
             const lines = buffer.split(/\r?\n/).filter(line => line.trim() !== '');
 
-            // Skip header if it exists. The first row could be a column label row.
-            const data = lines.map(line => {
+            // Skip header definitively via slice(1)
+            const data = lines.slice(1).map(line => {
                 const cols = line.split(',');
                 return {
                     eventNumber: cols[0]?.trim(),
@@ -71,13 +71,7 @@ export const parseSessionSummary = (filePath) => {
                     unused: cols[3]?.trim(),
                     roundCode: cols[4]?.trim()
                 };
-            }).filter(row => {
-                if (!row.eventNumber) return false;
-                // Exclude header row robustly
-                if (row.eventNumber.toLowerCase().includes('event')) return false;
-                if (row.eventDescription?.toLowerCase().includes('description')) return false;
-                return true;
-            });
+            }).filter(row => row.eventNumber);
 
             resolve(data);
         });
