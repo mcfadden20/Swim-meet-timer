@@ -59,6 +59,36 @@ export default function Stopwatch({ meetId, orgName }) {
     });
     const [isNoShow, setIsNoShow] = useState(false);
 
+    // Maestro State
+    const [maestroEvents, setMaestroEvents] = useState([]);
+    const [useMaestro, setUseMaestro] = useState(false);
+
+    // Fetch Maestro Status on Mount
+    useEffect(() => {
+        const fetchMaestro = async () => {
+            try {
+                const res = await fetch('/api/maestro/status');
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data.sessionSummary && data.sessionSummary.length > 0) {
+                        setMaestroEvents(data.sessionSummary);
+                        setUseMaestro(true);
+
+                        // If eventNum is currently just "1" and we have Maestro data, try to sync it.
+                        // In a real app we'd map it cleanly, but for now just take the first event if current is not in list
+                        const evExists = data.sessionSummary.find(e => e.eventNumber == eventNum);
+                        if (!evExists) {
+                            setEventNum(data.sessionSummary[0].eventNumber);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error("No maestro data found");
+            }
+        };
+        fetchMaestro();
+    }, []);
+
     // Placeholder Swimmer Data
     const [swimmer, setSwimmer] = useState({ name: "Swimmer Name", entry: "00:00.00" });
 
@@ -266,23 +296,53 @@ export default function Stopwatch({ meetId, orgName }) {
                 {isRunning ? "RACE IN PROGRESS" : (reviewMode ? "REVIEW & SAVE" : (isNoShow ? "CONFIRM NO SHOW" : "PRESS TO START"))}
             </div>
 
-            {/* Inputs - Compact Row - FIXED ARROWS AND TYPES */}
-            <div className="flex justify-between gap-2 bg-navy-800 p-2 rounded-lg border border-navy-800">
-                {['Event', 'Heat', 'Lane'].map((label, idx) => {
-                    const val = idx === 0 ? eventNum : idx === 1 ? heatNum : laneNum;
-                    const setVal = idx === 0 ? setEventNum : idx === 1 ? setHeatNum : setLaneNum;
+            {/* Inputs - Compact Row */}
+            <div className="flex justify-between gap-2 bg-navy-800 py-6 px-2 rounded-xl border border-navy-800">
+                {/* Event Selector (Dynamic if Maestro exists) */}
+                <div className="flex flex-col items-center w-1/3">
+                    <span className="text-[10px] text-cyan-400 uppercase font-bold tracking-wider mb-2">Event</span>
+                    {useMaestro ? (
+                        <select
+                            value={eventNum}
+                            onChange={(e) => setEventNum(e.target.value)}
+                            className="w-full bg-navy-900 border border-white/10 rounded-lg p-2 text-center text-lg font-bold text-white outline-none"
+                        >
+                            {maestroEvents.map(ev => (
+                                <option key={ev.eventNumber} value={ev.eventNumber}>
+                                    {ev.eventNumber} {ev.eventDescription ? `(${ev.eventDescription.substring(0, 8)}...)` : ''}
+                                </option>
+                            ))}
+                        </select>
+                    ) : (
+                        <div className="flex items-center w-full bg-navy-900 rounded-lg border border-white/5">
+                            <button className="px-3 py-4 text-slate-500 hover:text-white hover:bg-white/5 rounded-l-lg transition-colors" onClick={() => setEventNum(v => Math.max(1, Number(v) - 1))}>-</button>
+                            <input
+                                type="number"
+                                value={eventNum}
+                                onChange={(e) => setEventNum(Number(e.target.value))}
+                                className="no-spinners w-full bg-transparent text-center text-2xl font-black text-white outline-none"
+                            />
+                            <button className="px-3 py-4 text-slate-500 hover:text-white hover:bg-white/5 rounded-r-lg transition-colors" onClick={() => setEventNum(v => Number(v) + 1)}>+</button>
+                        </div>
+                    )}
+                </div>
+
+                {/* Heat & Lane remain standard inputs */}
+                {['Heat', 'Lane'].map((label, idx) => {
+                    const val = idx === 0 ? heatNum : laneNum;
+                    const setVal = idx === 0 ? setHeatNum : setLaneNum;
                     return (
                         <div key={label} className="flex flex-col items-center w-1/3">
-                            <span className="text-[10px] text-cyan-400 uppercase font-bold tracking-wider mb-1">{label}</span>
-                            <div className="flex items-center w-full">
-                                <button className="p-2 text-slate-500 hover:text-white" onClick={() => setVal(v => Math.max(1, Number(v) - 1))}>-</button>
+                            <span className="text-[10px] text-cyan-400 uppercase font-bold tracking-wider mb-2">{label}</span>
+                            <div className="flex items-center w-full bg-navy-900 rounded-lg border border-white/5">
+                                <button className="px-3 py-4 text-slate-500 hover:text-white hover:bg-white/5 rounded-l-lg transition-colors" onClick={() => setVal(v => Math.max(1, Number(v) - 1))}>-</button>
                                 <input
                                     type="number"
                                     value={val}
                                     onChange={(e) => setVal(Number(e.target.value))}
-                                    className="no-spinners w-full bg-transparent text-center text-xl font-bold text-white outline-none"
+                                    className="no-spinners w-full bg-transparent text-center text-2xl font-black text-white outline-none"
                                 />
-                                <button className="p-2 text-slate-500 hover:text-white" onClick={() => setVal(v => Number(v) + 1)}>+</button>
+                                <button className="px-3 py-4 text-slate-500 hover:text-white hover:bg-white/5 rounded-r-lg transition-colors" onClick={() => setVal(v => Number(v) + 1)}>+</button>
                             </div>
                         </div>
                     );
@@ -298,9 +358,9 @@ export default function Stopwatch({ meetId, orgName }) {
             )}
 
             {/* Main Timer Display */}
-            <div className="text-center py-2">
+            <div className="text-center py-10 flexitems-center justify-center">
                 <span className={cn(
-                    "text-7xl font-mono font-bold tracking-tighter tabular-nums text-white",
+                    "text-[5.5rem] leading-none font-mono font-black tracking-tighter tabular-nums text-white",
                     isNoShow && "line-through text-red-500 opacity-50"
                 )}>
                     {formatTime(elapsedTime)}
@@ -343,25 +403,26 @@ export default function Stopwatch({ meetId, orgName }) {
 
             {/* Secondary Utils */}
             <div className="grid grid-cols-2 gap-3 shrink-0 mt-4">
-                {reviewMode ? (
-                    <button onClick={handleReset} className="rounded-xl font-bold text-sm tracking-wider uppercase border border-white/10 text-slate-400 hover:text-white py-4">
-                        RESET (NO SAVE)
-                    </button>
-                ) : (
-                    <button
-                        onClick={() => setIsNoShow(!isNoShow)}
-                        className={cn(
-                            "rounded-xl font-bold text-sm tracking-wider uppercase border text-slate-400 hover:text-white py-4 transition-all",
-                            isNoShow ? "bg-slate-800 text-white border-white/20" : "border-white/10"
-                        )}
-                    >
-                        {isNoShow ? "Cancel No Show" : "Mark No Show"}
-                    </button>
-                )}
+                <button
+                    onClick={() => setIsNoShow(!isNoShow)}
+                    disabled={isRunning}
+                    className={cn(
+                        "rounded-xl font-bold text-sm tracking-wider uppercase border text-slate-400 hover:text-white py-4 transition-all",
+                        isNoShow ? "bg-slate-800 text-white border-white/20" : "border-white/10 bg-navy-800 hover:bg-navy-700",
+                        isRunning && "opacity-50 cursor-not-allowed"
+                    )}
+                >
+                    {isNoShow ? "Cancel No Show" : "Mark No Show"}
+                </button>
 
-                <a href="/api/export" target="_blank" className="flex items-center justify-center gap-2 rounded-xl border border-white/10 text-slate-400 hover:text-cyan-400 text-sm font-bold uppercase tracking-wider">
-                    <Download className="w-4 h-4" /> Export CSV
-                </a>
+                <button
+                    onClick={handleReset}
+                    disabled={elapsedTime === 0 && !isRunning}
+                    className="flex flex-col items-center justify-center gap-1 rounded-xl border border-white/10 text-slate-400 hover:text-white py-2 bg-navy-800 hover:bg-red-900/40 hover:text-red-400 hover:border-red-500/50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                    <RotateCcw className="w-5 h-5 mb-0.5" />
+                    <span className="text-xs font-bold uppercase tracking-wider">Reset Race</span>
+                </button>
             </div>
 
         </div>

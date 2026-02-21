@@ -29,8 +29,8 @@ export default function TimerApp() {
 
     return (
         <div className="w-full h-screen bg-navy-900 text-slate-300 flex flex-col items-center justify-start p-4 font-mono overflow-hidden">
-            <header className="w-full max-w-md flex flex-col items-center py-4 mb-2 border-b border-navy-800">
-                <div className="w-full flex justify-between items-center mb-2">
+            <header className="w-full max-w-md flex flex-col items-center py-2 mb-1 border-b border-navy-800">
+                <div className="w-full flex justify-between items-center mb-1">
                     <h1 className="text-xl font-bold tracking-tight text-cyan-400">
                         SWIM<span className="text-white">TIMER</span>
                     </h1>
@@ -46,8 +46,8 @@ export default function TimerApp() {
                 </div>
                 {activeMeet && (
                     <div className="text-center">
-                        <h2 className="text-lg font-bold text-white uppercase tracking-wider">{activeMeet.name}</h2>
-                        <div className="text-xs text-slate-500 font-mono">CODE: {activeMeet.access_code}</div>
+                        <h2 className="text-sm font-bold text-white uppercase tracking-wider">{activeMeet.name}</h2>
+                        <div className="text-[10px] text-slate-500 font-mono leading-none">CODE: {activeMeet.access_code}</div>
                     </div>
                 )}
             </header>

@@ -6,10 +6,12 @@ export default function AdminDashboard() {
     const [selectedMeet, setSelectedMeet] = useState(null);
     const [liveResults, setLiveResults] = useState([]);
     const [loading, setLoading] = useState(false);
+    const [maestroStatus, setMaestroStatus] = useState(null);
 
-    // Fetch Meets on Mount
+    // Fetch Meets and Maestro Status on Mount
     useEffect(() => {
         fetchMeets();
+        fetchMaestroStatus();
     }, []);
 
     // Poll for Live Results if a meet is selected
@@ -36,6 +38,18 @@ export default function AdminDashboard() {
         const res = await fetch(`/api/admin/meets/${meetId}/results`);
         const data = await res.json();
         setLiveResults(data.results);
+    };
+
+    const fetchMaestroStatus = async () => {
+        try {
+            const res = await fetch('/api/maestro/status');
+            if (res.ok) {
+                const data = await res.json();
+                setMaestroStatus(data);
+            }
+        } catch (e) {
+            console.error("Failed to fetch Maestro status", e);
+        }
     };
 
     const handleCreateMeet = async () => {
@@ -66,10 +80,35 @@ export default function AdminDashboard() {
         <div className="w-full h-screen bg-navy-900 text-slate-300 p-4 font-mono overflow-hidden flex flex-col">
             <header className="flex justify-between items-center pb-4 border-b border-navy-800 shrink-0">
                 <h1 className="text-2xl font-bold tracking-tight text-white">ADMIN<span className="text-cyan-400">DASHBOARD</span></h1>
-                <button onClick={handleCreateMeet} className="flex items-center gap-2 bg-cyan-400 text-navy-900 px-4 py-2 rounded-lg font-bold hover:bg-cyan-300">
-                    <Plus className="w-4 h-4" /> NEW MEET
-                </button>
+                <div className="flex gap-2">
+                    <a href="/admin/maestro" className="flex items-center gap-2 bg-navy-800 border border-white/10 text-white px-4 py-2 rounded-lg font-bold hover:bg-navy-700">
+                        MAESTRO SETTINGS
+                    </a>
+                    <button onClick={handleCreateMeet} className="flex items-center gap-2 bg-cyan-400 text-navy-900 px-4 py-2 rounded-lg font-bold hover:bg-cyan-300">
+                        <Plus className="w-4 h-4" /> NEW MEET
+                    </button>
+                </div>
             </header>
+
+            {/* Maestro Status Banner */}
+            {maestroStatus && (
+                <div className={`mt-4 p-3 rounded-lg border flex items-center justify-between ${maestroStatus.meetDetails ? 'bg-green-900/20 border-green-500/50' : 'bg-red-900/20 border-red-500/50'}`}>
+                    <div className="flex items-center gap-3">
+                        <div className={`w-3 h-3 rounded-full ${maestroStatus.meetDetails ? 'bg-green-500 animate-pulse' : 'bg-red-500'}`}></div>
+                        <div>
+                            <div className="text-sm font-bold text-white">Meet Maestro Connection</div>
+                            <div className="text-xs text-slate-400">
+                                {maestroStatus.meetDetails
+                                    ? `Loaded: ${maestroStatus.meetDetails.meetName} (${maestroStatus.sessionSummary.length} Events)`
+                                    : 'Waiting for meet_details.json to be written by Maestro...'}
+                            </div>
+                        </div>
+                    </div>
+                    <button onClick={fetchMaestroStatus} className="p-2 hover:bg-white/10 rounded transition-colors" title="Refresh Status">
+                        <RefreshCw className="w-4 h-4 text-slate-400" />
+                    </button>
+                </div>
+            )}
 
             <div className="flex flex-1 gap-4 overflow-hidden mt-4">
                 {/* Sidebar: Meet List */}

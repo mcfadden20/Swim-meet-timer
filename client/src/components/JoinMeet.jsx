@@ -20,7 +20,7 @@ export default function JoinMeet({ onJoin }) {
             const data = await res.json();
 
             if (res.ok) {
-                onJoin(data.meet);
+                onJoin({ ...data.meet });
             } else {
                 setError(data.error || 'Failed to join');
             }
@@ -38,13 +38,15 @@ export default function JoinMeet({ onJoin }) {
                 <p className="text-slate-400">Enter the 6-character code provided by the meet organizer.</p>
             </div>
 
-            <input
-                type="text"
-                value={code}
-                onChange={(e) => setCode(e.target.value)}
-                placeholder="DOL-26"
-                className="w-full bg-navy-800 border-2 border-cyan-400/50 rounded-xl p-4 text-center text-3xl font-mono font-bold text-white outline-none focus:border-cyan-400 uppercase tracking-widest placeholder:text-slate-600"
-            />
+            <div className="w-full space-y-4">
+                <input
+                    type="text"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value)}
+                    placeholder="MEET CODE (e.g. DOL-26)"
+                    className="w-full bg-navy-800 border-2 border-cyan-400/50 rounded-xl p-4 text-center text-3xl font-mono font-bold text-white outline-none focus:border-cyan-400 uppercase tracking-widest placeholder:text-slate-600"
+                />
+            </div>
 
             {error && <div className="text-red-400 font-bold bg-red-900/20 px-4 py-2 rounded-lg">{error}</div>}
 

@@ -4,6 +4,8 @@ import db from './db.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { generateSD3 } from './utils/sd3.js';
+import { initMaestroWatcher } from './utils/maestro/watcher.js';
+import { writeRaceData, writeTimingSystemConfig } from './utils/maestro/writer.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -57,6 +59,15 @@ app.post('/api/times', (req, res) => {
             return;
         }
         console.log('[POST /api/times] Success, ID:', this.lastID);
+
+        // Fetch all times for this specific heat to write the comprehensive race file
+        db.all('SELECT * FROM time_entries WHERE meet_id = ? AND event_number = ? AND heat_number = ?', [meet_id, event_number, heat_number], (err, rows) => {
+            if (!err && rows) {
+                // Write the immutable race payload
+                writeRaceData(1, event_number, heat_number, rows);
+            }
+        });
+
         res.json({ id: this.lastID, success: true });
     });
 });
@@ -183,8 +194,15 @@ app.get('/api/export/audit', (req, res) => {
     });
 });
 
+import { maestroState } from './utils/maestro/watcher.js';
+
+app.get('/api/maestro/status', (req, res) => {
+    res.json(maestroState);
+});
+
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
+    initMaestroWatcher(); // Initialize file integration
 });
 
 // SPA Catch-All (Must be last)
