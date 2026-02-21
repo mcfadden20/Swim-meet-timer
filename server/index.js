@@ -66,7 +66,10 @@ app.post('/api/times', (req, res) => {
         db.all('SELECT * FROM time_entries WHERE meet_id = ? AND event_number = ? AND heat_number = ?', [meet_id, event_number, heat_number], (err, rows) => {
             if (!err && rows) {
                 // Write the immutable race payload
-                writeRaceData(1, event_number, heat_number, rows);
+                writeRaceData(meet_id, 1, event_number, heat_number, rows);
+
+                // Also update the timing system configuration to heartbeat Maestro
+                writeTimingSystemConfig(meet_id, event_number, heat_number);
             }
         });
 
