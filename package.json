@@ -1,9 +1,10 @@
 {
   "name": "swim-meet-timer",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "type": "module",
   "scripts": {
+    "build": "cd client && npm install && npm run build",
     "postinstall": "cd client && npm install && npm run build",
     "start": "node server/index.js"
   },
