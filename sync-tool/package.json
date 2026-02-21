@@ -1,0 +1,16 @@
+{
+    "name": "maestro-sync",
+    "version": "1.0.0",
+    "description": "Windows Background Sync Tool for Swim Meet Timer",
+    "main": "sync.js",
+    "bin": "sync.js",
+    "scripts": {
+        "build": "pkg sync.js --targets node18-win-x64 --output maestro-sync.exe"
+    },
+    "dependencies": {
+        "node-fetch": "^2.6.9"
+    },
+    "devDependencies": {
+        "pkg": "^5.8.1"
+    }
+}
