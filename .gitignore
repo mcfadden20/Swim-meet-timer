@@ -1,1 +1,7 @@
-"node_modules/\ndist/\nserver/swim-meet.db" 
+node_modules/
+client/node_modules/
+server/node_modules/
+dist/
+client/dist/
+server/swim-meet.db
+.env
