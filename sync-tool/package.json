@@ -5,7 +5,7 @@
     "main": "sync.js",
     "bin": "sync.js",
     "scripts": {
-        "build": "pkg sync.js --targets node18-win-x64 --output maestro-sync.exe"
+        "build": "pkg . --targets node18-win-x64 --output maestro-sync.exe"
     },
     "dependencies": {
         "node-fetch": "^2.6.9"

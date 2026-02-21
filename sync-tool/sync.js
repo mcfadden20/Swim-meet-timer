@@ -1,9 +1,9 @@
-import fs from 'fs';
-import path from 'path';
-import readline from 'readline';
-import { exec } from 'child_process';
-import https from 'https';
-import http from 'http';
+const fs = require('fs');
+const path = require('path');
+const readline = require('readline');
+const { exec } = require('child_process');
+const https = require('https');
+const http = require('http');
 
 const POLLING_INTERVAL = 120000; // 120 seconds
 // For testing locally, allow overriding via command line or default to localhost
@@ -14,27 +14,42 @@ const rl = readline.createInterface({
     output: process.stdout
 });
 
+process.on('uncaughtException', (err) => {
+    console.error('\n[FATAL ERROR] An unexpected error occurred:');
+    console.error(err.message);
+    console.error(err.stack);
+    console.log('\nThe application has crashed. Press ENTER to close this window.');
+    rl.question('', () => {
+        process.exit(1);
+    });
+});
+
 const question = (query) => new Promise(resolve => rl.question(query, resolve));
 
 async function selectFolder() {
     return new Promise((resolve) => {
-        const psCommand = `
-            Add-Type -AssemblyName System.windows.forms;
-            $dialog = New-Object System.Windows.Forms.FolderBrowserDialog;
-            $dialog.Description = 'Select the Meet Maestro Data Directory';
-            $dialog.ShowNewFolderButton = $true;
-            if ($dialog.ShowDialog() -eq 'OK') { Write-Output $dialog.SelectedPath }
-        `;
+        try {
+            const psCommand = `
+                Add-Type -AssemblyName System.windows.forms;
+                $dialog = New-Object System.Windows.Forms.FolderBrowserDialog;
+                $dialog.Description = 'Select the Meet Maestro Data Directory';
+                $dialog.ShowNewFolderButton = $true;
+                if ($dialog.ShowDialog() -eq 'OK') { Write-Output $dialog.SelectedPath }
+            `;
 
-        console.log("Opening Windows folder selection dialog...");
-        exec(`powershell -NoProfile -Command "${psCommand}"`, (error, stdout) => {
-            if (error) {
-                console.log("Failed to open native dialog.");
-                resolve(null);
-                return;
-            }
-            resolve(stdout.trim() || null);
-        });
+            console.log("Opening Windows folder selection dialog...");
+            exec(`powershell -NoProfile -Command "${psCommand}"`, (error, stdout) => {
+                if (error) {
+                    console.log("Failed to open native dialog. You will need to enter the path manually.");
+                    resolve(null);
+                    return;
+                }
+                resolve(stdout.trim() || null);
+            });
+        } catch (err) {
+            console.error("Error invoking PowerShell dialog:", err.message);
+            resolve(null);
+        }
     });
 }
 

@@ -6,7 +6,8 @@ import { fileURLToPath } from 'url';
 import fs from 'fs';
 import multer from 'multer';
 import { generateSD3 } from './utils/sd3.js';
-import { initMaestroWatcher } from './utils/maestro/watcher.js';
+import { parseMeetDetails, parseSessionSummary } from './utils/maestro/parser.js';
+import { writeRaceData, writeTimingSystemConfig } from './utils/maestro/writer.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -196,32 +197,71 @@ app.get('/api/export/audit', (req, res) => {
     });
 });
 
-import { maestroState } from './utils/maestro/watcher.js';
+app.get('/api/maestro/status', async (req, res) => {
+    const meetId = req.query.meet_id;
+    if (!meetId) return res.status(400).json({ error: 'Missing meet_id' });
 
-app.get('/api/maestro/status', (req, res) => {
-    res.json(maestroState);
-});
+    const meetDir = path.join(__dirname, `../maestro_data/${meetId}`);
+    const detailsPath = path.join(meetDir, 'meet_details.json');
+    const summaryPath = path.join(meetDir, 'session_summary.csv');
 
-// --- Phase 16: Maestro Cloud-to-Local Sync Bridge APIs ---
-
-// 1. Initial Setup Upload
-const storage = multer.diskStorage({
-    destination: (req, file, cb) => {
-        const dir = path.join(__dirname, '../maestro_data');
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-        cb(null, dir);
-    },
-    filename: (req, file, cb) => {
-        cb(null, file.originalname);
+    try {
+        const meetDetails = parseMeetDetails(detailsPath);
+        const sessionSummary = await parseSessionSummary(summaryPath);
+        res.json({ meetDetails, sessionSummary });
+    } catch (e) {
+        res.json({}); // Return empty if not found
     }
 });
-const upload = multer({ storage });
+
+// --- Phase 16 & 16.1: Maestro Cloud-to-Local Sync Bridge APIs ---
+
+// 1. Initial Setup Upload (Auto-Meet Creation)
+const upload = multer({ storage: multer.memoryStorage() });
 
 app.post('/api/maestro/upload', upload.fields([
     { name: 'session_summary', maxCount: 1 },
     { name: 'meet_details', maxCount: 1 }
 ]), (req, res) => {
-    res.json({ success: true, message: 'Files uploaded successfully.' });
+    try {
+        const meetDetailsFile = req.files['meet_details']?.[0];
+        const sessionSummaryFile = req.files['session_summary']?.[0];
+
+        if (!meetDetailsFile || !sessionSummaryFile) {
+            return res.status(400).json({ error: 'Missing required maestro files.' });
+        }
+
+        // Parse Meet Name from buffer
+        let meetName = "Imported Maestro Meet";
+        try {
+            const parsed = JSON.parse(meetDetailsFile.buffer.toString('utf8').replace(/^\uFEFF/, ''));
+            if (parsed && parsed.meetName) {
+                meetName = parsed.meetName;
+            }
+        } catch (e) {
+            console.error("Failed to parse meet_details for name, using default.");
+        }
+
+        const access_code = Math.random().toString(36).substring(2, 8).toUpperCase();
+        const admin_pin = Math.floor(100000 + Math.random() * 900000).toString();
+
+        db.run('INSERT INTO meets (org_id, name, access_code, admin_pin) VALUES (?, ?, ?, ?)', [1, meetName, access_code, admin_pin], function (err) {
+            if (err) return res.status(500).json({ error: err.message });
+
+            const meetId = this.lastID;
+            const meetDir = path.join(__dirname, `../maestro_data/${meetId}`);
+
+            if (!fs.existsSync(meetDir)) fs.mkdirSync(meetDir, { recursive: true });
+
+            fs.writeFileSync(path.join(meetDir, 'meet_details.json'), meetDetailsFile.buffer);
+            fs.writeFileSync(path.join(meetDir, 'session_summary.csv'), sessionSummaryFile.buffer);
+
+            res.json({ success: true, meet_id: meetId, name: meetName, access_code, admin_pin });
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ error: 'Internal server error during processing.' });
+    }
 });
 
 // 2. Sync Pending Files (Retrieves generated JSON files not yet downloaded)
@@ -233,15 +273,15 @@ app.get('/api/sync/pending-files', (req, res) => {
 
     db.get('SELECT id FROM meets WHERE access_code = ? AND admin_pin = ?', [access_code, admin_pin], (err, row) => {
         if (err) return res.status(500).json({ error: err.message });
-        // 2-Tier Authentication Check
         if (!row) return res.status(401).json({ error: 'Unauthorized: Invalid Meet Code or Admin PIN.' });
 
-        const maestroDir = path.join(__dirname, '../maestro_data');
-        if (!fs.existsSync(maestroDir)) {
+        // Use Isolated Directory
+        const meetDir = path.join(__dirname, `../maestro_data/${row.id}`);
+        if (!fs.existsSync(meetDir)) {
             return res.json({ pending: [] });
         }
 
-        const files = fs.readdirSync(maestroDir).filter(f => f.startsWith('session_') && f.endsWith('.json'));
+        const files = fs.readdirSync(meetDir).filter(f => f.startsWith('session_') && f.endsWith('.json'));
 
         db.all('SELECT filename FROM maestro_sync_receipts WHERE meet_id = ?', [row.id], (err, syncedRows) => {
             if (err) return res.status(500).json({ error: err.message });
@@ -251,7 +291,7 @@ app.get('/api/sync/pending-files', (req, res) => {
 
             const payloads = pendingFilenames.map(filename => ({
                 filename,
-                content: JSON.parse(fs.readFileSync(path.join(maestroDir, filename), 'utf8'))
+                content: JSON.parse(fs.readFileSync(path.join(meetDir, filename), 'utf8'))
             }));
 
             res.json({ pending: payloads });
@@ -285,7 +325,6 @@ app.post('/api/sync/receipt', (req, res) => {
 
 app.listen(PORT, () => {
     console.log(`Server running on http://localhost:${PORT}`);
-    initMaestroWatcher(); // Initialize file integration
 });
 
 // SPA Catch-All (Must be last)

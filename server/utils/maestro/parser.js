@@ -61,10 +61,8 @@ export const parseSessionSummary = (filePath) => {
             // Very simple CSV parser, assuming 5 columns as per protocol
             const lines = buffer.split(/\r?\n/).filter(line => line.trim() !== '');
 
-            // Skip header if it exists (Protocol says "Example Contents" but doesn't explicitly guarantee headers. Usually it does.)
-            // We'll read raw rows for now based on index.
+            // Skip header if it exists. The first row could be a column label row.
             const data = lines.map(line => {
-                // simple split by comma, ignoring quotes for simplistic implementation based on protocol spec
                 const cols = line.split(',');
                 return {
                     eventNumber: cols[0]?.trim(),
@@ -73,7 +71,13 @@ export const parseSessionSummary = (filePath) => {
                     unused: cols[3]?.trim(),
                     roundCode: cols[4]?.trim()
                 };
-            }).filter(row => row.eventNumber && row.eventNumber.toLowerCase() !== 'event number'); // filter out possible header
+            }).filter(row => {
+                if (!row.eventNumber) return false;
+                // Exclude header row robustly
+                if (row.eventNumber.toLowerCase().includes('event')) return false;
+                if (row.eventDescription?.toLowerCase().includes('description')) return false;
+                return true;
+            });
 
             resolve(data);
         });
