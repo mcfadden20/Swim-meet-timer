@@ -196,6 +196,7 @@ export default function Stopwatch({ meetId, orgName }) {
 
     // Save & Advance Interaction
     const handleSaveAndNext = async () => {
+        triggerHaptic(); // Vibrate on Save
         const payload = {
             meet_id: meetId,
             event_number: Number(eventNum),
@@ -217,9 +218,7 @@ export default function Stopwatch({ meetId, orgName }) {
                 body: JSON.stringify(payload)
             });
 
-            if (response.ok) {
-                // Success
-            } else {
+            if (!response.ok) {
                 throw new Error('Server Error');
             }
         } catch (error) {
@@ -227,8 +226,29 @@ export default function Stopwatch({ meetId, orgName }) {
             saveOffline(payload);
         }
 
-        // Always Advance (Optimistic)
-        if (heatNum >= 1) setHeatNum(h => Number(h) + 1); // Force Number
+        // Intelligent Auto-Advance based on Maestro Data
+        if (useMaestro && maestroEvents.length > 0) {
+            const currentEventIdx = maestroEvents.findIndex(ev => Number(ev.eventNumber) === Number(eventNum));
+            if (currentEventIdx !== -1) {
+                const currentEvent = maestroEvents[currentEventIdx];
+                if (Number(heatNum) >= currentEvent.heatCount) {
+                    // Advance Event
+                    if (currentEventIdx + 1 < maestroEvents.length) {
+                        setEventNum(Number(maestroEvents[currentEventIdx + 1].eventNumber));
+                        setHeatNum(1);
+                    }
+                } else {
+                    // Advance Heat
+                    setHeatNum(h => Number(h) + 1);
+                }
+            } else {
+                setHeatNum(h => Number(h) + 1); // Fallback
+            }
+        } else {
+            // Manual Mode Advance
+            if (heatNum >= 1) setHeatNum(h => Number(h) + 1);
+        }
+
         setElapsedTime(0);
         setIsRunning(false);
         setReviewMode(false);
@@ -309,7 +329,7 @@ export default function Stopwatch({ meetId, orgName }) {
                         >
                             {maestroEvents.map(ev => (
                                 <option key={ev.eventNumber} value={ev.eventNumber}>
-                                    {ev.eventNumber} {ev.eventDescription ? `(${ev.eventDescription.substring(0, 8)}...)` : ''}
+                                    {ev.eventNumber} - {ev.eventDescription || `Event ${ev.eventNumber}`}
                                 </option>
                             ))}
                         </select>

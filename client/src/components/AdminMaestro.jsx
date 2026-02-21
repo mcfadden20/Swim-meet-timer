@@ -27,6 +27,38 @@ export default function AdminMaestro() {
         return () => clearInterval(interval);
     }, []);
 
+    const [uploading, setUploading] = useState(false);
+    const [uploadSuccess, setUploadSuccess] = useState(false);
+
+    const handleFileUpload = async (e) => {
+        e.preventDefault();
+        const formData = new FormData(e.target);
+        if (!formData.get('session_summary').size && !formData.get('meet_details').size) {
+            alert('Please select at least one file to upload.');
+            return;
+        }
+
+        setUploading(true);
+        setUploadSuccess(false);
+        try {
+            const res = await fetch('/api/maestro/upload', {
+                method: 'POST',
+                body: formData
+            });
+            if (res.ok) {
+                setUploadSuccess(true);
+                fetchStatus();
+                setTimeout(() => setUploadSuccess(false), 5000);
+            } else {
+                alert('Upload failed. Please try again.');
+            }
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setUploading(false);
+        }
+    };
+
     return (
         <div className="w-full h-screen bg-navy-900 text-slate-300 p-8 font-mono overflow-auto">
             <header className="flex justify-between items-center pb-6 border-b border-navy-800 mb-8 max-w-4xl mx-auto">
@@ -46,6 +78,43 @@ export default function AdminMaestro() {
             </header>
 
             <div className="max-w-4xl mx-auto space-y-6">
+
+                {/* Cloud Sync Initial Setup */}
+                <div className="bg-navy-800 rounded-xl p-6 border border-cyan-400/30">
+                    <h2 className="text-sm font-bold text-cyan-400 uppercase tracking-widest mb-4">Initial Setup: Cloud Sync</h2>
+                    <p className="text-sm text-slate-400 mb-4">
+                        If hosting on Digital Ocean, upload the Maestro configuration files generated on your local laptop to initialize the database.
+                    </p>
+
+                    <form onSubmit={handleFileUpload} className="space-y-4">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-navy-900 p-4 border border-white/5 rounded-lg">
+                                <label className="block text-xs font-bold text-slate-500 mb-2">session_summary.csv</label>
+                                <input type="file" name="session_summary" accept=".csv" className="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-navy-800 file:text-cyan-400 hover:file:bg-navy-700" />
+                            </div>
+                            <div className="bg-navy-900 p-4 border border-white/5 rounded-lg">
+                                <label className="block text-xs font-bold text-slate-500 mb-2">meet_details.json</label>
+                                <input type="file" name="meet_details" accept=".json" className="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-navy-800 file:text-cyan-400 hover:file:bg-navy-700" />
+                            </div>
+                        </div>
+                        <div className="flex justify-between items-center">
+                            <button type="submit" disabled={uploading} className="bg-cyan-400 text-navy-900 px-6 py-2 rounded font-bold hover:bg-cyan-300 disabled:opacity-50">
+                                {uploading ? 'UPLOADING...' : 'UPLOAD FILES'}
+                            </button>
+                            {uploadSuccess && <span className="text-green-400 font-bold flex items-center gap-2"><CheckCircle className="w-4 h-4" /> SUCCESS</span>}
+                        </div>
+                    </form>
+
+                    <div className="border-t border-white/10 mt-6 pt-6 flex justify-between items-center">
+                        <div>
+                            <h3 className="text-sm font-bold text-white mb-1">Live Sync Utility</h3>
+                            <p className="text-xs text-slate-400">Download the background relay to keep Maestro running automatically on your PC.</p>
+                        </div>
+                        <button onClick={() => alert('The Sync Tool is currently being built in Phase 16 (3/4).')} className="bg-navy-700 text-white border border-white/20 px-4 py-2 flex items-center gap-2 rounded text-sm font-bold hover:bg-navy-600">
+                            Download Sync Tool (.exe)
+                        </button>
+                    </div>
+                </div>
 
                 {/* System Status Card */}
                 <div className="bg-navy-800 rounded-xl p-6 border border-white/5">
@@ -74,15 +143,13 @@ export default function AdminMaestro() {
                     </div>
                 </div>
 
-                {/* Instructions Card */}
+                {/* Local Network Instructions Card */}
                 <div className="bg-navy-800 rounded-xl p-6 border border-white/5">
-                    <h2 className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-4">How it works</h2>
+                    <h2 className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-4">Local Network Operation</h2>
                     <ul className="list-disc list-inside space-y-2 text-sm text-slate-400">
                         <li>The backend is actively monitoring the <code className="bg-navy-900 border border-white/10 px-1 py-0.5 rounded text-cyan-400">maestro_data/</code> directory.</li>
-                        <li>In <strong>Meet Maestro</strong>, go to Timing Setup.</li>
-                        <li>Select "Swim Meet Timer" or "File Integration" as the timing vendor.</li>
-                        <li>Point the default data directory in Maestro to the absolute path of <code className="bg-navy-900 border border-white/10 px-1 py-0.5 rounded text-cyan-400">swim-meet-timer/maestro_data</code>.</li>
-                        <li>Click <strong>Write Configuration File</strong> in Maestro to generate the JSON files.</li>
+                        <li>If running on your local laptop, point the Meet Maestro <strong>Data Directory</strong> to the absolute path of <code className="bg-navy-900 border border-white/10 px-1 py-0.5 rounded text-cyan-400">swim-meet-timer/maestro_data</code>.</li>
+                        <li>Click <strong>Write Configuration File</strong> in Maestro to generate the JSON files automatically.</li>
                     </ul>
                 </div>
 

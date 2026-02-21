@@ -122,8 +122,19 @@ export default function AdminDashboard() {
                                 className={`p-4 rounded-lg text-left transition-all ${selectedMeet?.id === meet.id ? 'bg-cyan-400/10 border border-cyan-400' : 'bg-navy-900 border border-transparent hover:bg-navy-800'}`}
                             >
                                 <div className="text-lg font-bold text-white">{meet.name}</div>
-                                <div className="flex justify-between items-center mt-2">
-                                    <span className="text-xs font-mono bg-white/10 px-2 py-1 rounded text-cyan-400">{meet.access_code}</span>
+                                <div className="flex flex-col gap-2 mt-3">
+                                    <div className="flex justify-between items-center bg-navy-900 border border-white/5 rounded p-2">
+                                        <span className="text-xs text-slate-500 uppercase font-bold">Meet Code</span>
+                                        <span className="text-sm font-mono text-cyan-400 font-bold tracking-widest">{meet.access_code}</span>
+                                    </div>
+                                    {meet.admin_pin && (
+                                        <div className="flex justify-between items-center bg-navy-900 border border-white/5 rounded p-2">
+                                            <span className="text-xs text-slate-500 uppercase font-bold">Admin PIN</span>
+                                            <span className="text-sm font-mono text-yellow-400 font-bold tracking-widest">{meet.admin_pin}</span>
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="text-right mt-3">
                                     <span className="text-xs text-slate-500">{new Date(meet.created_at).toLocaleDateString()}</span>
                                 </div>
                             </button>
