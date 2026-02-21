@@ -110,8 +110,8 @@ export default function AdminMaestro() {
                             <h3 className="text-sm font-bold text-white mb-1">Live Sync Utility</h3>
                             <p className="text-xs text-slate-400">Download the background relay to keep Maestro running automatically on your PC.</p>
                         </div>
-                        <a href="/downloads/maestro-sync.exe" download className="bg-navy-700 text-white border border-white/20 px-4 py-2 flex items-center gap-2 rounded text-sm font-bold hover:bg-navy-600 transition-colors">
-                            Download Sync Tool (.exe)
+                        <a href="/api/sync/download-tool" download className="bg-navy-700 text-white border border-white/20 px-4 py-2 flex items-center gap-2 rounded text-sm font-bold hover:bg-navy-600 transition-colors">
+                            Download Sync Bundle (.zip)
                         </a>
                     </div>
                 </div>

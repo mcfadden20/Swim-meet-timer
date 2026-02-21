@@ -5,6 +5,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import fs from 'fs';
 import multer from 'multer';
+import AdmZip from 'adm-zip';
 import { generateSD3 } from './utils/sd3.js';
 import { parseMeetDetails, parseSessionSummary } from './utils/maestro/parser.js';
 import { writeRaceData, writeTimingSystemConfig } from './utils/maestro/writer.js';
@@ -323,6 +324,45 @@ app.post('/api/sync/receipt', (req, res) => {
                 res.json({ success: true, marked: filenames.length });
             });
         });
+    });
+});
+
+// 4. Download Custom Sync Tool Bundle
+app.get('/api/sync/download-tool', (req, res) => {
+    // Determine the external facing URL for the DO app to burn into config
+    const hostUrl = req.protocol + '://' + req.get('host');
+    const exePath = path.join(__dirname, '../client/public/downloads/maestro-sync.exe');
+
+    if (!fs.existsSync(exePath)) {
+        return res.status(404).send('Sync tool executable not found on server.');
+    }
+
+    try {
+        const zip = new AdmZip();
+        // Pack the executable
+        zip.addLocalFile(exePath);
+        // Pack a dynamic config.json holding the DO specific deployment URL
+        zip.addFile('config.json', Buffer.from(JSON.stringify({ apiUrl: hostUrl }, null, 2)));
+
+        res.set('Content-Type', 'application/zip');
+        res.set('Content-Disposition', 'attachment; filename=maestro-sync.zip');
+        res.send(zip.toBuffer());
+    } catch (err) {
+        console.error('ZIP Error:', err);
+        res.status(500).send('Failed to generate Sync Tool bundle.');
+    }
+});
+
+// 5. Verify Auth (Used by Sync Tool on startup)
+app.get('/api/sync/verify-auth', (req, res) => {
+    const { access_code, admin_pin } = req.query;
+    if (!access_code || !admin_pin) {
+        return res.status(400).json({ error: 'Missing credentials' });
+    }
+    db.get('SELECT id FROM meets WHERE access_code = ? AND admin_pin = ?', [access_code, admin_pin], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!row) return res.status(401).json({ error: 'Unauthorized: Invalid Meet Code or Admin PIN.' });
+        res.json({ success: true, meet_id: row.id });
     });
 });
 

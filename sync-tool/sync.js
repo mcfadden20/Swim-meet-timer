@@ -27,17 +27,24 @@ const question = (query) => new Promise(resolve => rl.question(query, resolve));
 async function selectFolder() {
     return new Promise((resolve) => {
         try {
-            const psCommand = `
-                Add-Type -AssemblyName System.windows.forms;
-                $dialog = New-Object System.Windows.Forms.FolderBrowserDialog;
-                $dialog.Description = 'Select the Meet Maestro Data Directory';
-                $dialog.ShowNewFolderButton = $true;
-                if ($dialog.ShowDialog() -eq 'OK') { Write-Output $dialog.SelectedPath }
-            `;
+            const os = require('os');
+            const vbsPath = path.join(os.tmpdir(), 'folder_picker_maestro.vbs');
+            const vbsCode = `
+Set objShell = CreateObject("Shell.Application")
+Set objFolder = objShell.BrowseForFolder(0, "Select the Meet Maestro Data Directory", 0, 0)
+If Not objFolder Is Nothing Then
+    WScript.Echo objFolder.Self.Path
+End If
+            `.trim();
+            fs.writeFileSync(vbsPath, vbsCode);
 
             console.log("Opening Windows folder selection dialog...");
-            exec(`powershell -Sta -NoProfile -Command "${psCommand}"`, (error, stdout) => {
-                if (error) {
+            exec(`cscript //nologo "${vbsPath}"`, (error, stdout) => {
+                try {
+                    if (fs.existsSync(vbsPath)) fs.unlinkSync(vbsPath);
+                } catch (e) { }
+
+                if (error || !stdout.trim()) {
                     console.log("Failed to open native dialog. You will need to enter the path manually.");
                     resolve(null);
                     return;
@@ -45,7 +52,7 @@ async function selectFolder() {
                 resolve(stdout.trim() || null);
             });
         } catch (err) {
-            console.error("Error invoking PowerShell dialog:", err.message);
+            console.error("Error invoking VBScript dialog:", err.message);
             resolve(null);
         }
     });
@@ -150,17 +157,51 @@ async function main() {
     console.log("   Maestro Cloud-to-Local Sync Bridge      ");
     console.log("===========================================\n");
 
-    let apiUrl = await question("Enter the DO App URL (or leave blank for http://localhost:3000):\n> ");
-    apiUrl = apiUrl.trim() || 'http://localhost:3000';
-    // Trim trailing slashes from API URL
+    let apiUrl = 'http://localhost:3000';
+    try {
+        const configPath = path.join(path.dirname(process.execPath), 'config.json');
+        if (fs.existsSync(configPath)) {
+            const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
+            if (config.apiUrl) {
+                apiUrl = config.apiUrl;
+                console.log(`Loaded Server URL from config.json: ${apiUrl}`);
+            }
+        } else {
+            let promptUrl = await question("Enter the DO App URL (or leave blank for http://localhost:3000):\n> ");
+            apiUrl = promptUrl.trim() || 'http://localhost:3000';
+        }
+    } catch (e) {
+        let promptUrl = await question("Enter the DO App URL (or leave blank for http://localhost:3000):\n> ");
+        apiUrl = promptUrl.trim() || 'http://localhost:3000';
+    }
     apiUrl = apiUrl.replace(/\/+$/, '');
 
-    const accessCode = await question("Enter the 6-character Meet Code: ");
-    const adminPin = await question("Enter the Admin PIN: ");
+    let accessCode, adminPin;
+    while (true) {
+        accessCode = await question("Enter the 6-character Meet Code: ");
+        adminPin = await question("Enter the Admin PIN: ");
 
-    if (!accessCode || !adminPin) {
-        console.log("Error: Both Meet Code and Admin PIN are required.");
-        process.exit(1);
+        if (!accessCode || !adminPin) {
+            console.log("Error: Both Meet Code and Admin PIN are required.");
+            continue;
+        }
+
+        process.stdout.write("Verifying credentials... ");
+        try {
+            const url = `${apiUrl}/api/sync/verify-auth?access_code=${accessCode.trim()}&admin_pin=${adminPin.trim()}`;
+            const res = await request(url);
+            if (res.ok) {
+                console.log("SUCCESS");
+                break;
+            } else {
+                console.log(`FAILED (${res.status}). Check your Meet Code and PIN.`);
+            }
+        } catch (err) {
+            console.log(`CONNECTION FAILED. Could not reach server (${apiUrl}).`);
+            console.log("Press Ctrl+C to exit.");
+            // We wait forever if unreachable so it doesn't just crash out
+            await new Promise(() => { });
+        }
     }
 
     let targetDir = await selectFolder();

@@ -8,6 +8,7 @@
     "start": "node server/index.js"
   },
   "dependencies": {
+    "adm-zip": "^0.5.16",
     "chokidar": "^3.6.0",
     "cors": "^2.8.5",
     "csv-parser": "^3.0.0",
