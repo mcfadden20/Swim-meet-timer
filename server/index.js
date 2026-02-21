@@ -3,9 +3,10 @@ import cors from 'cors';
 import db from './db.js';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import fs from 'fs';
+import multer from 'multer';
 import { generateSD3 } from './utils/sd3.js';
 import { initMaestroWatcher } from './utils/maestro/watcher.js';
-import { writeRaceData, writeTimingSystemConfig } from './utils/maestro/writer.js';
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -99,10 +100,11 @@ app.post('/api/admin/meets', (req, res) => {
     const { name, org_id } = req.body;
     // Generate simple 6-char code
     const access_code = Math.random().toString(36).substring(2, 8).toUpperCase();
+    const admin_pin = Math.floor(100000 + Math.random() * 900000).toString(); // 6 digit PIN
 
-    db.run('INSERT INTO meets (org_id, name, access_code) VALUES (?, ?, ?)', [org_id || 1, name, access_code], function (err) {
+    db.run('INSERT INTO meets (org_id, name, access_code, admin_pin) VALUES (?, ?, ?, ?)', [org_id || 1, name, access_code, admin_pin], function (err) {
         if (err) return res.status(500).json({ error: err.message });
-        res.json({ id: this.lastID, access_code, name });
+        res.json({ id: this.lastID, access_code, admin_pin, name });
     });
 });
 
@@ -198,6 +200,87 @@ import { maestroState } from './utils/maestro/watcher.js';
 
 app.get('/api/maestro/status', (req, res) => {
     res.json(maestroState);
+});
+
+// --- Phase 16: Maestro Cloud-to-Local Sync Bridge APIs ---
+
+// 1. Initial Setup Upload
+const storage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const dir = path.join(__dirname, '../maestro_data');
+        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+        cb(null, dir);
+    },
+    filename: (req, file, cb) => {
+        cb(null, file.originalname);
+    }
+});
+const upload = multer({ storage });
+
+app.post('/api/maestro/upload', upload.fields([
+    { name: 'session_summary', maxCount: 1 },
+    { name: 'meet_details', maxCount: 1 }
+]), (req, res) => {
+    res.json({ success: true, message: 'Files uploaded successfully.' });
+});
+
+// 2. Sync Pending Files (Retrieves generated JSON files not yet downloaded)
+app.get('/api/sync/pending-files', (req, res) => {
+    const { access_code, admin_pin } = req.query;
+    if (!access_code || !admin_pin) {
+        return res.status(400).json({ error: 'Missing access_code or admin_pin' });
+    }
+
+    db.get('SELECT id FROM meets WHERE access_code = ? AND admin_pin = ?', [access_code, admin_pin], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        // 2-Tier Authentication Check
+        if (!row) return res.status(401).json({ error: 'Unauthorized: Invalid Meet Code or Admin PIN.' });
+
+        const maestroDir = path.join(__dirname, '../maestro_data');
+        if (!fs.existsSync(maestroDir)) {
+            return res.json({ pending: [] });
+        }
+
+        const files = fs.readdirSync(maestroDir).filter(f => f.startsWith('session_') && f.endsWith('.json'));
+
+        db.all('SELECT filename FROM maestro_sync_receipts WHERE meet_id = ?', [row.id], (err, syncedRows) => {
+            if (err) return res.status(500).json({ error: err.message });
+
+            const syncedFiles = new Set(syncedRows.map(r => r.filename));
+            const pendingFilenames = files.filter(f => !syncedFiles.has(f));
+
+            const payloads = pendingFilenames.map(filename => ({
+                filename,
+                content: JSON.parse(fs.readFileSync(path.join(maestroDir, filename), 'utf8'))
+            }));
+
+            res.json({ pending: payloads });
+        });
+    });
+});
+
+// 3. Sync Receipt (Marks files as downloaded by the local Windows Sync Tool)
+app.post('/api/sync/receipt', (req, res) => {
+    const { access_code, admin_pin, filenames } = req.body;
+    if (!access_code || !admin_pin || !filenames || !Array.isArray(filenames)) {
+        return res.status(400).json({ error: 'Invalid payload' });
+    }
+
+    db.get('SELECT id FROM meets WHERE access_code = ? AND admin_pin = ?', [access_code, admin_pin], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!row) return res.status(401).json({ error: 'Unauthorized: Invalid Meet Code or Admin PIN.' });
+
+        const stmt = db.prepare('INSERT OR IGNORE INTO maestro_sync_receipts (filename, meet_id) VALUES (?, ?)');
+        db.serialize(() => {
+            filenames.forEach(filename => {
+                stmt.run([filename, row.id]);
+            });
+            stmt.finalize((err) => {
+                if (err) return res.status(500).json({ error: err.message });
+                res.json({ success: true, marked: filenames.length });
+            });
+        });
+    });
 });
 
 app.listen(PORT, () => {

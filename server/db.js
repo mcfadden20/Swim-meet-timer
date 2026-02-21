@@ -5,6 +5,7 @@ const db = new sqlite3.Database('swim-meet.db', (err) => {
     console.error('Could not connect to database', err);
   } else {
     console.log('Connected to SQLite database');
+    db.exec('PRAGMA journal_mode = WAL;');
   }
 });
 
@@ -25,11 +26,15 @@ db.serialize(() => {
       org_id INTEGER NOT NULL,
       name TEXT NOT NULL,
       access_code TEXT UNIQUE NOT NULL, -- The 6-char code (e.g. 'DOL-26')
+      admin_pin TEXT, -- Used for 2-Tier Auth in Sync Tool
       is_active BOOLEAN DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY(org_id) REFERENCES organizations(id)
     )
   `);
+
+  // Add admin_pin to existing DBs safely
+  db.run("ALTER TABLE meets ADD COLUMN admin_pin TEXT", () => { });
 
   // 3. Time Entries (Scoped to Meet)
   db.run(`
@@ -67,6 +72,15 @@ db.serialize(() => {
       payload TEXT,
       client_timestamp INTEGER,
       server_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  // 5. Maestro Sync Receipts
+  db.run(`
+    CREATE TABLE IF NOT EXISTS maestro_sync_receipts (
+      filename TEXT PRIMARY KEY,
+      meet_id INTEGER,
+      synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
 });
