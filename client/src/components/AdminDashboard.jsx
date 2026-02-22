@@ -123,6 +123,11 @@ export default function AdminDashboard() {
         <div className="w-full h-screen bg-navy-900 text-slate-300 p-4 font-mono overflow-hidden flex flex-col">
             <header className="flex justify-between items-center pb-4 border-b border-navy-800 shrink-0">
                 <h1 className="text-2xl font-bold tracking-tight text-white">ADMIN<span className="text-cyan-400">DASHBOARD</span></h1>
+                <div className="flex gap-2">
+                    <a href="/admin/maestro" className="flex items-center gap-2 bg-cyan-400 text-navy-900 px-4 py-2 rounded-lg font-bold hover:bg-cyan-300">
+                        MAESTRO SETTINGS
+                    </a>
+                </div>
             </header>
 
             {/* Maestro Status Banner */}
@@ -164,7 +169,7 @@ export default function AdminDashboard() {
                                     </div>
                                     {meet.admin_pin && (
                                         <div className="flex justify-between items-center bg-navy-900 border border-white/5 rounded p-2">
-                                            <span className="text-xs text-slate-500 uppercase font-bold">Admin PIN</span>
+                                            <span className="text-xs text-slate-500 uppercase font-bold">Staff / Admin PIN</span>
                                             <span className="text-sm font-mono text-yellow-400 font-bold tracking-widest">{meet.admin_pin}</span>
                                         </div>
                                     )}

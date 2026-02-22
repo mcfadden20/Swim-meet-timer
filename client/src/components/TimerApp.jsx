@@ -63,6 +63,14 @@ export default function TimerApp() {
             ) : (
                 <JoinMeet onJoin={handleJoin} />
             )}
+
+            {/* Application Footer Placeholder */}
+            {/* Note: Edit this block to add custom sponsor links, app versioning, or organization policies */}
+            <footer className="w-full text-center py-4 mt-auto border-t border-navy-800">
+                <p className="text-xs text-slate-500 uppercase tracking-widest font-bold">
+                    Official Swim Timer Application
+                </p>
+            </footer>
         </div>
     );
 }

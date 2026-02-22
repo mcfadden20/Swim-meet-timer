@@ -227,7 +227,7 @@ export default function Stopwatch({ meetId, orgName }) {
         }
 
         // Intelligent Auto-Advance based on Maestro Data
-        // User requested: Heats do not advance automatically. Event only advances after the last heat.
+        // User requested: Auto-advance heats too
         if (useMaestro && maestroEvents.length > 0) {
             const currentEventIdx = maestroEvents.findIndex(ev => Number(ev.eventNumber) === Number(eventNum));
             if (currentEventIdx !== -1) {
@@ -238,8 +238,15 @@ export default function Stopwatch({ meetId, orgName }) {
                         setEventNum(Number(maestroEvents[currentEventIdx + 1].eventNumber));
                         setHeatNum(1);
                     }
+                } else {
+                    // Advance Heat
+                    setHeatNum(h => Number(h) + 1);
                 }
+            } else {
+                setHeatNum(h => Number(h) + 1); // Fallback if event missing
             }
+        } else {
+            if (heatNum >= 1) setHeatNum(h => Number(h) + 1);
         }
 
         setElapsedTime(0);
@@ -293,8 +300,14 @@ export default function Stopwatch({ meetId, orgName }) {
                         setEventNum(Number(maestroEvents[currentEventIdx + 1].eventNumber));
                         setHeatNum(1);
                     }
+                } else {
+                    setHeatNum(h => Number(h) + 1);
                 }
+            } else {
+                setHeatNum(h => Number(h) + 1);
             }
+        } else {
+            if (heatNum >= 1) setHeatNum(h => Number(h) + 1);
         }
         setIsNoShow(false);
         setElapsedTime(0);
