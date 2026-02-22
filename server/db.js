@@ -63,6 +63,13 @@ db.serialize(() => {
     }
   });
 
+  // Add DQ columns to time_entries safely
+  db.run("ALTER TABLE time_entries ADD COLUMN is_dq BOOLEAN DEFAULT 0", () => { });
+  db.run("ALTER TABLE time_entries ADD COLUMN dq_code TEXT", () => { });
+  db.run("ALTER TABLE time_entries ADD COLUMN dq_description TEXT", () => { });
+  db.run("ALTER TABLE time_entries ADD COLUMN official_initials TEXT", () => { });
+  db.run("ALTER TABLE time_entries ADD COLUMN raw_time INTEGER", () => { });
+
   // 4. Audit Logs
   db.run(`
     CREATE TABLE IF NOT EXISTS audit_logs (

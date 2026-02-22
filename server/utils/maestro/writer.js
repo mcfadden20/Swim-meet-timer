@@ -69,14 +69,15 @@ const getNextRaceNumber = (meetId, sessionStr, eventStr, heatStr) => {
  * Generates an immutable race data file.
  * We package multiple time entries for the same heat into a single payload array here.
  */
-export const writeRaceData = (meetId, sessionNumber = 1, eventNumber, heatNumber, timesArray, protocolVersion = "1.2.3") => {
+export const writeRaceData = (meetId, sessionNumber = 1, eventNumber, heatNumber, timesArray, protocolVersion = "1.2.3", isRevision = false) => {
     const meetDir = path.join(MAESTRO_DIR, String(meetId));
     if (!fs.existsSync(meetDir)) {
         fs.mkdirSync(meetDir, { recursive: true });
     }
 
     const raceNum = getNextRaceNumber(meetId, sessionNumber, eventNumber, heatNumber);
-    const fileName = `session_${sessionNumber}_event_${eventNumber}_heat_${heatNumber}_race_${raceNum}.json`;
+    const suffix = isRevision ? '-revised' : '';
+    const fileName = `session_${sessionNumber}_event_${eventNumber}_heat_${heatNumber}_race_${raceNum}${suffix}.json`;
     const filePath = path.join(meetDir, fileName);
 
     const formatTime = (time_ms) => {
@@ -92,7 +93,7 @@ export const writeRaceData = (meetId, sessionNumber = 1, eventNumber, heatNumber
         lane: parseInt(t.lane),
         timer1: t.is_no_show ? null : formatTime(t.time_ms),
         isEmpty: !!t.is_no_show,
-        // isDq: false (Implement DQ logic later if needed)
+        isDq: !!t.is_dq
     }));
 
     const data = {

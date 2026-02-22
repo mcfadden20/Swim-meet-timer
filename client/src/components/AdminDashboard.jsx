@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Download, RefreshCw, Plus, Timer } from 'lucide-react';
+import { Download, RefreshCw, Plus, Timer, Edit2, Save, X } from 'lucide-react';
 
 export default function AdminDashboard() {
     const [meets, setMeets] = useState([]);
@@ -7,6 +7,10 @@ export default function AdminDashboard() {
     const [liveResults, setLiveResults] = useState([]);
     const [loading, setLoading] = useState(false);
     const [maestroStatus, setMaestroStatus] = useState(null);
+
+    // Inline Editing State
+    const [editingId, setEditingId] = useState(null);
+    const [editValues, setEditValues] = useState({});
 
     // Fetch Meets on Mount
     useEffect(() => {
@@ -60,6 +64,59 @@ export default function AdminDashboard() {
         const seconds = Math.floor((ms % 60000) / 1000);
         const centiseconds = Math.floor((ms % 1000) / 10);
         return `${minutes}:${seconds.toString().padStart(2, '0')}.${centiseconds.toString().padStart(2, '0')}`;
+    };
+
+    const parseTimeInput = (timeStr) => {
+        // Simple parser for M:SS.ms or S.ms
+        const parts = timeStr.split(':');
+        let totalMs = 0;
+        if (parts.length > 1) {
+            totalMs += parseInt(parts[0]) * 60000;
+            const secParts = parts[1].split('.');
+            totalMs += parseInt(secParts[0]) * 1000;
+            if (secParts[1]) totalMs += parseInt(secParts[1].padEnd(2, '0').slice(0, 2)) * 10;
+        } else {
+            const secParts = parts[0].split('.');
+            totalMs += parseInt(secParts[0] || 0) * 1000;
+            if (secParts[1]) totalMs += parseInt(secParts[1].padEnd(2, '0').slice(0, 2)) * 10;
+        }
+        return totalMs;
+    };
+
+    const handleEditClick = (res) => {
+        setEditingId(res.id);
+        setEditValues({
+            heat_number: res.heat_number,
+            lane: res.lane,
+            timeStr: formatTime(res.time_ms)
+        });
+    };
+
+    const handleEditSave = async (id) => {
+        try {
+            const time_ms = parseTimeInput(editValues.timeStr);
+            const payload = {
+                heat_number: Number(editValues.heat_number),
+                lane: Number(editValues.lane),
+                time_ms
+            };
+
+            const response = await fetch(`/api/times/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (response.ok) {
+                setEditingId(null);
+                fetchResults(selectedMeet.id); // Refresh
+            } else {
+                alert('Failed to save correction.');
+            }
+        } catch (e) {
+            console.error('Save error', e);
+            alert('Error saving correction.');
+        }
     };
 
     return (
@@ -162,20 +219,63 @@ export default function AdminDashboard() {
                                             <th className="pb-2">Heat</th>
                                             <th className="pb-2">Lane</th>
                                             <th className="pb-2 text-right">Result</th>
+                                            <th className="pb-2 text-right w-16">Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-white/5 font-mono">
-                                        {liveResults.map(res => (
-                                            <tr key={res.id} className="hover:bg-white/5 transition-colors">
-                                                <td className="py-2 text-slate-500">{new Date(res.created_at).toLocaleTimeString()}</td>
-                                                <td className="py-2 text-white">{res.event_number}</td>
-                                                <td className="py-2 text-white">{res.heat_number}</td>
-                                                <td className="py-2 text-cyan-400 font-bold">{res.lane}</td>
-                                                <td className={`py-2 text-right font-bold ${res.is_no_show ? 'text-red-500' : 'text-white'}`}>
-                                                    {res.is_no_show ? 'NO SHOW' : formatTime(res.time_ms)}
-                                                </td>
-                                            </tr>
-                                        ))}
+                                        {liveResults.map(res => {
+                                            const isEditing = editingId === res.id;
+                                            return (
+                                                <tr key={res.id} className={`transition-colors ${res.is_dq ? 'bg-red-900/20' : 'hover:bg-white/5'}`}>
+                                                    <td className="py-2 text-slate-500">{new Date(res.created_at).toLocaleTimeString()}</td>
+                                                    <td className="py-2 text-white">{res.event_number}</td>
+
+                                                    <td className="py-2 text-white">
+                                                        {isEditing ? (
+                                                            <input type="number" className="w-12 bg-navy-900 border border-cyan-400 rounded px-1 text-white" value={editValues.heat_number} onChange={(e) => setEditValues({ ...editValues, heat_number: e.target.value })} />
+                                                        ) : res.heat_number}
+                                                    </td>
+
+                                                    <td className="py-2 text-cyan-400 font-bold">
+                                                        {isEditing ? (
+                                                            <input type="number" className="w-12 bg-navy-900 border border-cyan-400 rounded px-1 text-white" value={editValues.lane} onChange={(e) => setEditValues({ ...editValues, lane: e.target.value })} />
+                                                        ) : res.lane}
+                                                    </td>
+
+                                                    <td className={`py-2 text-right font-bold flex flex-col items-end ${res.is_no_show ? 'text-slate-500' : 'text-white'}`}>
+                                                        {isEditing ? (
+                                                            <input type="text" className="w-20 bg-navy-900 border border-cyan-400 rounded px-1 text-right text-white" value={editValues.timeStr} onChange={(e) => setEditValues({ ...editValues, timeStr: e.target.value })} />
+                                                        ) : (
+                                                            <>
+                                                                {res.is_dq ? (
+                                                                    <div className="text-red-500 bg-red-900/30 px-2 py-1 rounded">
+                                                                        DQ: {res.dq_code} - {res.dq_description} ({res.official_initials})
+                                                                    </div>
+                                                                ) : res.is_no_show ? 'NO SHOW' : formatTime(res.time_ms)}
+
+                                                                {/* Show Raw Time if edited */}
+                                                                {res.raw_time !== null && res.raw_time !== res.time_ms && !res.is_dq && (
+                                                                    <div className="text-[10px] text-yellow-500 font-bold">Orig: {formatTime(res.raw_time)}</div>
+                                                                )}
+                                                            </>
+                                                        )}
+                                                    </td>
+
+                                                    <td className="py-2 text-right">
+                                                        {isEditing ? (
+                                                            <div className="flex justify-end gap-2">
+                                                                <button onClick={() => handleEditSave(res.id)} className="text-green-500 hover:text-green-400"><Save className="w-4 h-4" /></button>
+                                                                <button onClick={() => setEditingId(null)} className="text-slate-500 hover:text-white"><X className="w-4 h-4" /></button>
+                                                            </div>
+                                                        ) : (
+                                                            <button onClick={() => handleEditClick(res)} className="text-slate-500 hover:text-cyan-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                                                                <Edit2 className="w-4 h-4 ml-auto" />
+                                                            </button>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
                                     </tbody>
                                 </table>
                                 {liveResults.length === 0 && (

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import Stopwatch from './Stopwatch';
 import JoinMeet from './JoinMeet';
 
@@ -36,9 +37,14 @@ export default function TimerApp() {
                     </h1>
                     <div className="flex gap-2 items-center">
                         {activeMeet && (
-                            <button onClick={handleLeave} className="text-[10px] uppercase font-bold bg-red-900/50 text-red-500 border border-red-500 px-2 py-1 rounded hover:bg-red-500 hover:text-white transition-colors">
-                                EXIT
-                            </button>
+                            <>
+                                <Link to="/official" className="text-[10px] uppercase font-bold bg-cyan-900/50 text-cyan-400 border border-cyan-400 px-2 py-1 rounded hover:bg-cyan-500 hover:text-white transition-colors">
+                                    Official Mode
+                                </Link>
+                                <button onClick={handleLeave} className="text-[10px] uppercase font-bold bg-red-900/50 text-red-500 border border-red-500 px-2 py-1 rounded hover:bg-red-500 hover:text-white transition-colors">
+                                    EXIT
+                                </button>
+                            </>
                         )}
                         <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></div>
                         <span className="text-xs font-bold text-cyan-400">ONLINE</span>

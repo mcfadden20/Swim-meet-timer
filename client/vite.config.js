@@ -20,7 +20,8 @@ export default defineConfig({
         description: 'Offline-first swim meet timer application',
         theme_color: '#0f172a',
         background_color: '#0f172a',
-        display: 'standalone'
+        display: 'standalone',
+        orientation: 'portrait'
       }
     })
   ],

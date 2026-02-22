@@ -1,0 +1,61 @@
+{
+    "Backstroke": [
+        "2A - Delay initiating turn",
+        "2B - Multiple strokes past vertical at turn",
+        "2C - Toes over lip of gutter after start",
+        "2D - Not on back off wall",
+        "2E - Past vertical at turn: independent strokes",
+        "2F - Past vertical at turn: non-continuous turning action"
+    ],
+    "Breaststroke": [
+        "3A - Alternating Kick",
+        "3B - Butterfly kick",
+        "3C - Scissors kick",
+        "3D - Active butterfly kick",
+        "3E - Head did not break surface by 15m",
+        "3F - Two strokes under water",
+        "3G - Touch: One hand touch",
+        "3H - Touch: Non-simultaneous",
+        "3I - Not on breast off wall"
+    ],
+    "Butterfly": [
+        "1A - Alternating Kick",
+        "1B - Breaststroke kick",
+        "1C - Scissors kick",
+        "1D - Arms: Non-simultaneous recovery",
+        "1E - Arms: Underwater recovery",
+        "1F - Touch: One hand touch",
+        "1G - Touch: Non-simultaneous touch"
+    ],
+    "Freestyle": [
+        "4A - No touch at turn",
+        "4B - Head did not break surface by 15m",
+        "4C - Walking on or springing from bottom",
+        "4D - Pulling on lane line"
+    ],
+    "Individual Medley": [
+        "5A - Stroke Infraction: Butterfly",
+        "5B - Stroke Infraction: Backstroke",
+        "5C - Stroke Infraction: Breaststroke",
+        "5D - Stroke Infraction: Freestyle",
+        "5E - Out of sequence"
+    ],
+    "Relays": [
+        "6A - Early take-off swimmer 2",
+        "6B - Early take-off swimmer 3",
+        "6C - Early take-off swimmer 4",
+        "6D - Stroke Infraction swimmer 1",
+        "6E - Stroke Infraction swimmer 2",
+        "6F - Stroke Infraction swimmer 3",
+        "6G - Stroke Infraction swimmer 4",
+        "6H - Changed order of swimmers"
+    ],
+    "Miscellaneous": [
+        "7A - False start",
+        "7B - Did not finish",
+        "7C - Swept off starting block",
+        "7D - Unsportsmanlike conduct",
+        "7E - Re-entered water",
+        "7F - Interfered with another swimmer"
+    ]
+}

@@ -10,6 +10,15 @@ import { generateSD3 } from './utils/sd3.js';
 import { parseMeetDetails, parseSessionSummary } from './utils/maestro/parser.js';
 import { writeRaceData, writeTimingSystemConfig } from './utils/maestro/writer.js';
 
+// Preload DQ Codes
+const dqCodesPath = path.join(__dirname, 'utils/maestro/dq_codes.json');
+let dqCodes = {};
+try {
+    dqCodes = JSON.parse(fs.readFileSync(dqCodesPath, 'utf8'));
+} catch (e) {
+    console.warn("Failed to load dq_codes.json", e);
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -22,6 +31,10 @@ app.use(express.static(path.join(__dirname, '../client/dist')));
 
 app.get('/', (req, res) => {
     res.json({ message: 'Swim Meet Timer API Ready' });
+});
+
+app.get('/api/dq-codes', (req, res) => {
+    res.json(dqCodes);
 });
 
 app.get('/api/times', (req, res) => {
@@ -45,15 +58,22 @@ app.post('/api/join-meet', (req, res) => {
 
 app.post('/api/times', (req, res) => {
     console.log('[POST /api/times] Received payload:', req.body);
-    const { meet_id, event_number, heat_number, lane, time_ms, is_no_show, swimmer_name } = req.body;
+    const { meet_id, event_number, heat_number, lane, time_ms, is_no_show, swimmer_name, is_dq, dq_code, dq_description, official_initials } = req.body;
 
     if (!meet_id || !event_number || !heat_number || !lane) {
         console.error('[POST /api/times] Missing fields');
         return res.status(400).json({ error: 'Missing required fields (Meet ID, Event, Heat, Lane)' });
     }
 
-    const sql = 'INSERT INTO time_entries (meet_id, event_number, heat_number, lane, time_ms, is_no_show, swimmer_name) VALUES (?, ?, ?, ?, ?, ?, ?)';
-    const params = [meet_id, event_number, heat_number, lane, time_ms || 0, is_no_show ? 1 : 0, swimmer_name || ''];
+    const sql = `
+        INSERT INTO time_entries (
+            meet_id, event_number, heat_number, lane, time_ms, is_no_show, swimmer_name, is_dq, dq_code, dq_description, official_initials
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `;
+    const params = [
+        meet_id, event_number, heat_number, lane, time_ms || 0, is_no_show ? 1 : 0, swimmer_name || '',
+        is_dq ? 1 : 0, dq_code || null, dq_description || null, official_initials || null
+    ];
 
     db.run(sql, params, function (err) {
         if (err) {
@@ -75,6 +95,36 @@ app.post('/api/times', (req, res) => {
         });
 
         res.json({ id: this.lastID, success: true });
+    });
+});
+
+app.put('/api/times/:id', (req, res) => {
+    const timeId = req.params.id;
+    const { time_ms, lane, heat_number } = req.body; // Allow admins to fix the time, lane, or heat
+
+    db.get('SELECT * FROM time_entries WHERE id = ?', [timeId], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!row) return res.status(404).json({ error: 'Time entry not found' });
+
+        // If this is the FIRST time it's being edited, stash the original time into raw_time
+        const rawTime = row.raw_time !== null ? row.raw_time : row.time_ms;
+
+        db.run(
+            'UPDATE time_entries SET time_ms = ?, lane = ?, heat_number = ?, raw_time = ? WHERE id = ?',
+            [time_ms, lane, heat_number, rawTime, timeId],
+            function (updateErr) {
+                if (updateErr) return res.status(500).json({ error: updateErr.message });
+
+                // Rewrite the Maestro race file indicating a revision
+                db.all('SELECT * FROM time_entries WHERE meet_id = ? AND event_number = ? AND heat_number = ?', [row.meet_id, row.event_number, heat_number], (fetchErr, allRows) => {
+                    if (!fetchErr && allRows) {
+                        writeRaceData(row.meet_id, 1, row.event_number, heat_number, allRows, true); // true = isRevision
+                    }
+                });
+
+                res.json({ success: true, updated_id: timeId, raw_time_saved: rawTime });
+            }
+        );
     });
 });
 
