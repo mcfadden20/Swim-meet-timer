@@ -75,7 +75,7 @@ export default function AdminMaestro() {
                     <Link to="/admin" className="p-2 hover:bg-white/10 rounded-lg transition-colors">
                         <ArrowLeft className="w-5 h-5 text-slate-400" />
                     </Link>
-                    <h1 className="text-2xl font-bold tracking-tight text-white">MAESTRO<span className="text-cyan-400">INTEGRATION</span></h1>
+                    <h1 className="text-2xl font-bold tracking-tight text-white">MAESTRO <span className="text-cyan-400">INTEGRATION</span></h1>
                 </div>
                 <button
                     onClick={fetchStatus}
@@ -92,7 +92,7 @@ export default function AdminMaestro() {
                 <div className="bg-navy-800 rounded-xl p-6 border border-cyan-400/30">
                     <h2 className="text-sm font-bold text-cyan-400 uppercase tracking-widest mb-4">Initial Setup: Cloud Sync</h2>
                     <p className="text-sm text-slate-400 mb-4">
-                        If hosting on Digital Ocean, upload the Maestro configuration files generated on your local laptop to initialize the database.
+                        Upload the Meet Maestro configuration files generated on your local laptop to initialize the meet result automation.
                     </p>
 
                     {uploadSuccess && status?.sessionSummary && (
@@ -110,11 +110,11 @@ export default function AdminMaestro() {
                     <form onSubmit={handleFileUpload} className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
                             <div className="bg-navy-900 p-4 border border-white/5 rounded-lg">
-                                <label className="block text-xs font-bold text-slate-500 mb-2">session_summary.csv</label>
+                                <label className="block text-xs font-bold text-slate-500 mb-2">Upload session_summary.csv</label>
                                 <input type="file" name="session_summary" accept=".csv" className="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-navy-800 file:text-cyan-400 hover:file:bg-navy-700" />
                             </div>
                             <div className="bg-navy-900 p-4 border border-white/5 rounded-lg">
-                                <label className="block text-xs font-bold text-slate-500 mb-2">meet_details.json</label>
+                                <label className="block text-xs font-bold text-slate-500 mb-2">Upload meet_details.json</label>
                                 <input type="file" name="meet_details" accept=".json" className="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-navy-800 file:text-cyan-400 hover:file:bg-navy-700" />
                             </div>
                         </div>
@@ -129,7 +129,7 @@ export default function AdminMaestro() {
                     <div className="border-t border-white/10 mt-6 pt-6 flex justify-between items-center">
                         <div>
                             <h3 className="text-sm font-bold text-white mb-1">Live Sync Utility</h3>
-                            <p className="text-xs text-slate-400">Download the background relay to keep Maestro running automatically on your PC.</p>
+                            <p className="text-xs text-slate-400">Download the Meet Maestro Sync tool to keep the sync running automatically on your PC.</p>
                         </div>
                         <a href="/api/sync/download-tool" download className="bg-navy-700 text-white border border-white/20 px-4 py-2 flex items-center gap-2 rounded text-sm font-bold hover:bg-navy-600 transition-colors">
                             Download Sync Bundle (.zip)

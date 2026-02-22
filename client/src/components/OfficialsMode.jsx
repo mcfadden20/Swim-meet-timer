@@ -166,7 +166,7 @@ export default function OfficialsMode() {
                 </Link>
                 <div className="flex flex-col items-center">
                     <h1 className="text-xl font-bold tracking-tight text-red-500 flex items-center gap-2">
-                        <ShieldAlert className="w-5 h-5" /> OFFICIALS MODE
+                        <ShieldAlert className="w-5 h-5" />  OFFICIALS MODE
                     </h1>
                     <span className="text-xs font-bold text-slate-500">{activeMeet.name}</span>
                 </div>

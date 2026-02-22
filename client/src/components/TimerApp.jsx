@@ -33,7 +33,7 @@ export default function TimerApp() {
             <header className="w-full max-w-md flex flex-col items-center py-2 mb-1 border-b border-navy-800">
                 <div className="w-full flex justify-between items-center mb-1">
                     <h1 className="text-xl font-bold tracking-tight text-cyan-400">
-                        SWIM<span className="text-white">TIMER</span>
+                        SWIM<span className="text-white"> TIMER</span>
                     </h1>
                     <div className="flex gap-2 items-center">
                         {activeMeet && (
@@ -68,7 +68,7 @@ export default function TimerApp() {
             {/* Note: Edit this block to add custom sponsor links, app versioning, or organization policies */}
             <footer className="w-full text-center py-4 mt-auto border-t border-navy-800">
                 <p className="text-xs text-slate-500 uppercase tracking-widest font-bold">
-                    Official Swim Timer Application
+                    Official Swim Timer
                 </p>
             </footer>
         </div>
