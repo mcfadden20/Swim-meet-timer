@@ -58,20 +58,35 @@ export const parseSessionSummary = (filePath) => {
         });
 
         stream.on('end', () => {
-            // Very simple CSV parser, assuming 5 columns as per protocol
             const lines = buffer.split(/\r?\n/).filter(line => line.trim() !== '');
 
-            // Skip header definitively via slice(1)
-            const data = lines.slice(1).map(line => {
+            // The CSV format is actually: Event,Heat,Description
+            // So we parse each row and then group by Event to find the max Heat (heatCount)
+            const rawData = lines.slice(1).map(line => {
                 const cols = line.split(',');
                 return {
                     eventNumber: cols[0]?.trim(),
-                    eventDescription: cols[1]?.trim(),
-                    heatCount: parseInt(cols[2]?.trim()) || 0,
-                    unused: cols[3]?.trim(),
-                    roundCode: cols[4]?.trim()
+                    heatNumber: parseInt(cols[1]?.trim()) || 0,
+                    eventDescription: cols.slice(2).join(',').trim()
                 };
             }).filter(row => row.eventNumber);
+
+            const grouped = {};
+            rawData.forEach(row => {
+                if (!grouped[row.eventNumber]) {
+                    grouped[row.eventNumber] = {
+                        eventNumber: row.eventNumber,
+                        eventDescription: row.eventDescription,
+                        heatCount: 0
+                    };
+                }
+                if (row.heatNumber > grouped[row.eventNumber].heatCount) {
+                    grouped[row.eventNumber].heatCount = row.heatNumber;
+                }
+            });
+
+            // Convert map to array and maintain numeric sorting
+            const data = Object.values(grouped).sort((a, b) => parseInt(a.eventNumber) - parseInt(b.eventNumber));
 
             resolve(data);
         });

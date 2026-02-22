@@ -95,6 +95,18 @@ export default function AdminMaestro() {
                         If hosting on Digital Ocean, upload the Maestro configuration files generated on your local laptop to initialize the database.
                     </p>
 
+                    {uploadSuccess && status?.sessionSummary && (
+                        <div className="bg-green-900/40 border border-green-500/50 rounded-lg p-4 mb-4 flex items-center gap-3">
+                            <CheckCircle className="w-6 h-6 text-green-500" />
+                            <div>
+                                <div className="text-sm font-bold text-green-400">Upload Successful!</div>
+                                <div className="text-xs text-slate-300 mt-1">
+                                    Loaded meet <strong>"{status.meetDetails?.meetName || "Meet"}"</strong> with <strong>{status.sessionSummary.length}</strong> events successfully configured.
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
                     <form onSubmit={handleFileUpload} className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
                             <div className="bg-navy-900 p-4 border border-white/5 rounded-lg">

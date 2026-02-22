@@ -93,7 +93,10 @@ export const writeRaceData = (meetId, sessionNumber = 1, eventNumber, heatNumber
         lane: parseInt(t.lane),
         timer1: t.is_no_show ? null : formatTime(t.time_ms),
         isEmpty: !!t.is_no_show,
-        isDq: !!t.is_dq
+        isDq: !!t.is_dq,
+        dqCode: t.dq_code || null,
+        dqDescription: t.dq_description || null,
+        dqOfficial: t.official_initials || null
     }));
 
     const data = {

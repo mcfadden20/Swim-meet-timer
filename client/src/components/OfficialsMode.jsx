@@ -27,6 +27,22 @@ export default function OfficialsMode() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [successMsg, setSuccessMsg] = useState('');
 
+    const [isAuthenticated, setIsAuthenticated] = useState(() => {
+        return activeMeet && !activeMeet.admin_pin;
+    });
+    const [pinInput, setPinInput] = useState('');
+    const [pinError, setPinError] = useState(false);
+
+    const handlePinSubmit = () => {
+        if (pinInput === activeMeet.admin_pin) {
+            setIsAuthenticated(true);
+        } else {
+            setPinError(true);
+            setTimeout(() => setPinError(false), 2000);
+            if (navigator.vibrate) navigator.vibrate(200);
+        }
+    };
+
     useEffect(() => {
         // Fetch DQ Codes
         fetch('/api/dq-codes')
@@ -112,6 +128,32 @@ export default function OfficialsMode() {
                 <Link to="/" className="bg-cyan-400 text-navy-900 px-6 py-3 rounded-xl font-bold text-lg">
                     Return to Timer
                 </Link>
+            </div>
+        );
+    }
+
+    if (!isAuthenticated) {
+        return (
+            <div className="w-full h-screen bg-navy-900 text-white flex flex-col items-center justify-center p-4 font-mono">
+                <ShieldAlert className="w-16 h-16 text-cyan-400 mb-4" />
+                <h1 className="text-xl font-bold mb-2">STAFF AUTHORIZATION</h1>
+                <p className="text-slate-400 text-center mb-6">Enter the Meet PIN to access Officials Mode.</p>
+                <div className="flex flex-col items-center">
+                    <input
+                        type="tel"
+                        value={pinInput}
+                        onChange={(e) => setPinInput(e.target.value)}
+                        placeholder="PIN"
+                        className={`w-32 bg-navy-800 border-2 rounded-xl text-center text-3xl font-black py-4 mb-4 outline-none transition-colors ${pinError ? 'border-red-500 text-red-500' : 'border-white/10 text-white focus:border-cyan-400'}`}
+                    />
+                    <button
+                        onClick={handlePinSubmit}
+                        className="bg-cyan-400 text-navy-900 px-8 py-3 rounded-xl font-black text-lg w-32"
+                    >
+                        GO
+                    </button>
+                    <Link to="/" className="text-slate-500 mt-6 text-sm underline">Cancel</Link>
+                </div>
             </div>
         );
     }

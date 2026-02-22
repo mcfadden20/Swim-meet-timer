@@ -227,26 +227,19 @@ export default function Stopwatch({ meetId, orgName }) {
         }
 
         // Intelligent Auto-Advance based on Maestro Data
+        // User requested: Heats do not advance automatically. Event only advances after the last heat.
         if (useMaestro && maestroEvents.length > 0) {
             const currentEventIdx = maestroEvents.findIndex(ev => Number(ev.eventNumber) === Number(eventNum));
             if (currentEventIdx !== -1) {
                 const currentEvent = maestroEvents[currentEventIdx];
                 if (Number(heatNum) >= Number(currentEvent.heatCount)) {
-                    // Advance Event
+                    // Advance Event to next, reset Heat to 1
                     if (currentEventIdx + 1 < maestroEvents.length) {
                         setEventNum(Number(maestroEvents[currentEventIdx + 1].eventNumber));
                         setHeatNum(1);
                     }
-                } else {
-                    // Advance Heat
-                    setHeatNum(h => Number(h) + 1);
                 }
-            } else {
-                setHeatNum(h => Number(h) + 1); // Fallback
             }
-        } else {
-            // Manual Mode Advance
-            if (heatNum >= 1) setHeatNum(h => Number(h) + 1);
         }
 
         setElapsedTime(0);
@@ -291,7 +284,18 @@ export default function Stopwatch({ meetId, orgName }) {
             saveOffline(payload);
         }
 
-        if (heatNum >= 1) setHeatNum(h => Number(h) + 1);
+        if (useMaestro && maestroEvents.length > 0) {
+            const currentEventIdx = maestroEvents.findIndex(ev => Number(ev.eventNumber) === Number(eventNum));
+            if (currentEventIdx !== -1) {
+                const currentEvent = maestroEvents[currentEventIdx];
+                if (Number(heatNum) >= Number(currentEvent.heatCount)) {
+                    if (currentEventIdx + 1 < maestroEvents.length) {
+                        setEventNum(Number(maestroEvents[currentEventIdx + 1].eventNumber));
+                        setHeatNum(1);
+                    }
+                }
+            }
+        }
         setIsNoShow(false);
         setElapsedTime(0);
         setReviewMode(false);
@@ -444,6 +448,9 @@ export default function Stopwatch({ meetId, orgName }) {
                     <span className="text-xs font-bold uppercase tracking-wider">Reset Race</span>
                 </button>
             </div>
+
+            {/* Strict Physical Padding Zone to prevent iOS Swipe Up intercept */}
+            <div className="w-full h-40 shrink-0"></div>
 
         </div>
     );
