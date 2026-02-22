@@ -10,6 +10,10 @@ import { generateSD3 } from './utils/sd3.js';
 import { parseMeetDetails, parseSessionSummary } from './utils/maestro/parser.js';
 import { writeRaceData, writeTimingSystemConfig } from './utils/maestro/writer.js';
 
+const app = express();
+const PORT = process.env.PORT || 3000;
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+
 // Preload DQ Codes
 const dqCodesPath = path.join(__dirname, 'utils/maestro/dq_codes.json');
 let dqCodes = {};
@@ -18,10 +22,6 @@ try {
 } catch (e) {
     console.warn("Failed to load dq_codes.json", e);
 }
-
-const app = express();
-const PORT = process.env.PORT || 3000;
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 app.use(cors());
 app.use(express.json());
