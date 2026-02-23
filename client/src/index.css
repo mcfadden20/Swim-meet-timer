@@ -2,8 +2,24 @@
 @tailwind components;
 @tailwind utilities;
 
-@layer utilities {
+@import '@fontsource/jetbrains-mono';
 
+@layer base {
+  :root {
+    font-family: Inter, system-ui, sans-serif;
+    line-height: 1.5;
+    font-weight: 400;
+    color-scheme: dark;
+  }
+
+  body {
+    margin: 0;
+    min-width: 320px;
+    min-height: 100vh;
+  }
+}
+
+@layer utilities {
   /* Hide number input spinners */
   .no-spinners::-webkit-outer-spin-button,
   .no-spinners::-webkit-inner-spin-button {
@@ -14,25 +30,4 @@
   .no-spinners {
     -moz-appearance: textfield;
   }
-}
-
-@import '@fontsource/jetbrains-mono';
-
-:root {
-  font-family: Inter, system-ui, Avenir, Helvetica, Arial, sans-serif;
-  line-height: 1.5;
-  font-weight: 400;
-
-  color-scheme: dark;
-  color: #ffffff;
-  background-color: #000000;
-  font-family: 'JetBrains Mono', monospace;
-}
-
-body {
-  margin: 0;
-  display: flex;
-  place-items: center;
-  min-width: 320px;
-  min-height: 100vh;
 }
