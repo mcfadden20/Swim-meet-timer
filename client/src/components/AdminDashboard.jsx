@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Download, Plus, Timer, Activity, Save, X, Edit2 } from 'lucide-react';
+import { Download, Plus, Timer, Activity, Save, X, Edit2, Info } from 'lucide-react';
 
 export default function AdminDashboard() {
     const [meets, setMeets] = useState([]);
@@ -108,33 +108,51 @@ export default function AdminDashboard() {
 
     // UI Constants
     const scrollbarClasses = "[&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:bg-[#f25b2a] [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-track]:bg-transparent";
-    const outerShadow = "shadow-[12px_12px_20px_#0e0f11,-12px_-12px_20px_#363940]";
+    const outerShadow = "shadow-[8px_12px_20px_#0e0f11,-12px_-12px_20px_#363940]";
     const cardShadow = "shadow-[8px_8px_16px_#0e0f11,-8px_-8px_16px_#363940]";
     const buttonShadow = "shadow-[6px_6px_12px_#0e0f11,-6px_-6px_12px_#363940]";
     const pushedInner = "shadow-[inset_4px_4px_8px_#101214,inset_-4px_-4px_8px_#363940]";
 
     return (
-        /* MAIN WRAPPER: Changed to flex-col to allow for a top header */
         <div className="h-screen w-screen bg-[#1b1d21] flex flex-col overflow-hidden p-10 font-sans text-white box-border selection:bg-[#f25b2a]">
 
-            {/* NEW TOP HEADER: Added space for a clear title */}
-            <header className="mb-8 px-4 shrink-0">
+            <header className="mb-10 px-4 shrink-0">
                 <h1 className="text-4xl font-black tracking-tighter text-white uppercase italic opacity-90 ml-[4px]">
                     Admin <span className="text-[#f25b2a]">Dashboard</span>
                 </h1>
             </header>
 
-            {/* COLUMNS CONTAINER: Added gap-12 for more space between columns */}
-            <div className="flex flex-1 gap-12 overflow-hidden min-h-0">
+            {/* REMOVED gutterShadow here for a cleaner, unified background */}
+            <div className="flex flex-1 gap-8 overflow-hidden min-h-0 relative">
 
-                {/* LEFT SIDEBAR (30%): Increased padding to p-10 to protect rounded edges */}
-                <div className={`w-[30%] bg-[#282a2f] rounded-[40px] mt-[8px] mb-[8px] p-10 flex flex-col gap-8 shrink-0 ${outerShadow}`}>
-                    <div className="px-2 shrink-0">
-                        <h2 className="text-2xl font-bold tracking-tight text-white mb-1 ml-[4px]">Active Meets</h2>
-                        <p className="text-xs font-semibold text-[#8F92A1] uppercase tracking-widest ml-[4px]">Select Database</p>
+                {/* LEFT SIDEBAR */}
+                <div className={`relative z-20 w-[30%] bg-[#282a2f] rounded-[40px] p-10 flex flex-col gap-10 shrink-0 ${outerShadow}`}>
+                    <div className="px-2 shrink-0 flex items-center justify-between">
+                        <div>
+                            <h2 className="text-2xl font-bold tracking-tight text-white ml-[4px]">Active Meets</h2>
+                        </div>
+
+                        {/* PLUS BUTTON WITH TOOLTIP: Aligned with text */}
+                        <div className="relative group">
+                            <a
+                                href="/admin/maestro"
+                                className={`w-12 h-12 mr-[20px] rounded-full bg-[#282a2f] ${buttonShadow} active:${pushedInner} flex items-center justify-center text-[#f25b2a] hover:scale-110 transition-transform`}
+                            >
+                                <Plus className="w-5 h-5" />
+                            </a>
+                            {/* TOOLTIP */}
+                            <div className="absolute top-full mt-4 right-0 w-256 p-4 bg-[#222429] rounded-2xl shadow-2xl opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50 border border-[#363940]">
+                                <div className="flex gap-3 items-start">
+                                    <Info className="w-4 h-4 text-[#f25b2a] shrink-0 mt-0.5" />
+                                    <p className="text-[10px] leading-relaxed text-[#8F92A1] font-bold uppercase tracking-tight">
+                                        Maestro Integration: Upload sessions and heat information, and download Windows utility.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
                     </div>
 
-                    <div className={`flex-1 overflow-y-auto ${scrollbarClasses} flex flex-col gap-8 pb-4 px-2 `}>
+                    <div className={`flex-1 overflow-y-auto ${scrollbarClasses} flex flex-col gap-8 pb-4 px-2`}>
                         {meets.map((meet) => {
                             const isActive = selectedMeet?.id === meet.id;
                             return (
@@ -142,12 +160,12 @@ export default function AdminDashboard() {
                                     key={meet.id}
                                     onClick={() => setSelectedMeet(meet)}
                                     className={`flex-shrink-0 p-8 rounded-[28px] cursor-pointer transition-all duration-300 ${isActive
-                                        ? `bg-[#222429] border-l-8 border-[#f25b2a] ${pushedInner}`
-                                        : `bg-[#282a2f] ${cardShadow} active:${pushedInner} hover:translate-x-1`
+                                        ? `bg-[#222429] border-l-8 border-[#f25b2a] ${pushedInner} mx-4 scale-[0.98]`
+                                        : `bg-[#282a2f] ${cardShadow} active:${pushedInner} hover:translate-x-1 mx-0`
                                         }`}
                                 >
                                     <h3 className="font-black text-xl text-white truncate mb-4 ml-[4px]">{meet.name}</h3>
-                                    <div className={`rounded-2xl p-4 flex justify-between items-center mb-[8px] mt-[-16px]`}>
+                                    <div className="rounded-2xl p-4 flex justify-between items-center mb-[8px] mt-[-16px]">
                                         <span className="text-[10px] text-[#8F92A1] uppercase font-bold ml-[4px]">Entry Code</span>
                                         <span className="font-mono text-sm font-bold text-[#f25b2a] mr-[20px]">{meet.access_code}</span>
                                     </div>
@@ -157,11 +175,11 @@ export default function AdminDashboard() {
                     </div>
                 </div>
 
-                {/* RIGHT CONTENT AREA (70%): Increased padding to p-12 and min-w-0 to prevent clipping */}
-                <div className={`flex-1 bg-[#282a2f] rounded-[40px] mt-[8px] mb-[8px] p-12 flex flex-col min-w-0 overflow-hidden ml-[16px] ${outerShadow}`}>
+                {/* RIGHT CONTENT AREA */}
+                <div className={`relative z-10 flex-1 bg-[#282a2f] rounded-[40px] p-12 flex flex-col min-w-0 overflow-hidden ml-[12px] ${outerShadow}`}>
                     {selectedMeet ? (
                         <>
-                            <div className="flex items-start justify-between mb-10 shrink-0 ml-[4px]">
+                            <div className="flex items-start justify-between mb-10 shrink-0 ml-[12px]">
                                 <div>
                                     <h2 className="text-4xl font-black text-white tracking-tight leading-none mb-3 italic uppercase">
                                         {selectedMeet.name}
@@ -175,7 +193,6 @@ export default function AdminDashboard() {
                                     </div>
                                 </div>
 
-                                {/* EXPORT BUTTONS: Added 'mr-2' to nudge them away from the right edge if needed */}
                                 <div className="flex gap-6 shrink-0 pt-2 mr-[40px] mt-[18px]">
                                     <a href="/api/export" target="_blank" className={`flex items-center gap-3 px-8 py-4 mr-[8px] rounded-full bg-[#282a2f] ${buttonShadow} active:${pushedInner} text-sm font-bold text-[#8F92A1] hover:text-white transition-all`}>
                                         <Download className="w-5 h-5 text-[#f25b2a]" /> CSV
@@ -186,8 +203,8 @@ export default function AdminDashboard() {
                                 </div>
                             </div>
 
-                            <div className={`flex-1 overflow-y-auto ${scrollbarClasses} pr-[4px] rounded-[32px] bg-[#282a2f] ${pushedInner} p-6`}>
-                                <table className="w-full text-left border-collapse ml-[16px] mt-[16px]">
+                            <div className={`ml-[8px] flex-1 overflow-y-auto ${scrollbarClasses} pr-[4px] rounded-[32px] bg-[#282a2f] ${pushedInner} p-6`}>
+                                <table className="w-full text-left border-collapse ml-[12px] mt-[16px]">
                                     <thead className="sticky top-0 bg-[#282a2f] z-10">
                                         <tr>
                                             <th className="px-8 py-6 text-[11px] font-black text-[#8F92A1] uppercase tracking-[0.2em]">Timestamp</th>
