@@ -1,0 +1,11 @@
+{
+  "currentEvent": "1",
+  "currentHeat": 2,
+  "currentSessionNumber": 1,
+  "currentRaceNumber": 13,
+  "protocolVersion": "1.2.3",
+  "timingSystemType": "Swim Meet Timer",
+  "timingSystemVersion": "1.0.0",
+  "updatedAt": "2026-02-26T21:56:53.909Z",
+  "timersPerLaneCount": 1
+}

@@ -1,0 +1,33 @@
+{
+  "createdAt": "2026-02-26T21:51:07.722Z",
+  "protocolVersion": "1.2.3",
+  "lanes": [
+    {
+      "lane": 3,
+      "timer1": "00:01:05.432",
+      "isEmpty": false,
+      "isDq": false,
+      "dqCode": null,
+      "dqDescription": null,
+      "dqOfficial": null
+    },
+    {
+      "lane": 4,
+      "timer1": null,
+      "isEmpty": true,
+      "isDq": false,
+      "dqCode": null,
+      "dqDescription": null,
+      "dqOfficial": null
+    },
+    {
+      "lane": 5,
+      "timer1": null,
+      "isEmpty": false,
+      "isDq": true,
+      "dqCode": "101.1",
+      "dqDescription": "False Start",
+      "dqOfficial": "QA"
+    }
+  ]
+}

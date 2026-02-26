@@ -1,15 +1,9 @@
 import { useState, useEffect } from 'react';
 import { ShieldAlert, ArrowLeft, CheckCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
-import { clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
-
-function cn(...inputs) {
-    return twMerge(clsx(inputs));
-}
 
 export default function OfficialsMode() {
-    const [activeMeet, setActiveMeet] = useState(() => {
+    const [activeMeet] = useState(() => {
         const saved = localStorage.getItem('active-meet');
         return saved ? JSON.parse(saved) : null;
     });

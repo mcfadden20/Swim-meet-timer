@@ -1,0 +1,15 @@
+{
+  "createdAt": "2026-02-26T21:44:10.020Z",
+  "protocolVersion": "1.2.3",
+  "lanes": [
+    {
+      "lane": 4,
+      "timer1": null,
+      "isEmpty": true,
+      "isDq": false,
+      "dqCode": null,
+      "dqDescription": null,
+      "dqOfficial": null
+    }
+  ]
+}

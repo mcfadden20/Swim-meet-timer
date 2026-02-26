@@ -24,7 +24,7 @@ export default function JoinMeet({ onJoin }) {
             } else {
                 setError(data.error || 'Failed to join');
             }
-        } catch (e) {
+        } catch {
             setError('Connection error');
         } finally {
             setLoading(false);

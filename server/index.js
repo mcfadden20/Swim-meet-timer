@@ -33,12 +33,21 @@ app.get('/', (req, res) => {
     res.json({ message: 'Swim Meet Timer API Ready' });
 });
 
+app.get('/api/health', (req, res) => {
+    res.json({ ok: true, service: 'swim-meet-timer-api' });
+});
+
 app.get('/api/dq-codes', (req, res) => {
     res.json(dqCodes);
 });
 
 app.get('/api/times', (req, res) => {
-    db.all('SELECT * FROM time_entries ORDER BY created_at DESC', [], (err, rows) => {
+    const meetId = req.query.meet_id;
+    if (!meetId) {
+        return res.status(400).json({ error: 'Missing meet_id' });
+    }
+
+    db.all('SELECT * FROM time_entries WHERE meet_id = ? ORDER BY created_at DESC', [meetId], (err, rows) => {
         if (err) {
             res.status(500).json({ error: err.message });
             return;
@@ -49,7 +58,7 @@ app.get('/api/times', (req, res) => {
 
 app.post('/api/join-meet', (req, res) => {
     const { access_code } = req.body;
-    db.get('SELECT id, name, org_id FROM meets WHERE access_code = ? AND is_active = 1', [access_code], (err, row) => {
+    db.get('SELECT id, name, org_id, access_code FROM meets WHERE access_code = ? AND is_active = 1', [access_code], (err, row) => {
         if (err) return res.status(500).json({ error: err.message });
         if (!row) return res.status(404).json({ error: 'Invalid or inactive meet code' });
         res.json({ success: true, meet: row });
@@ -100,25 +109,61 @@ app.post('/api/times', (req, res) => {
 
 app.put('/api/times/:id', (req, res) => {
     const timeId = req.params.id;
-    const { time_ms, lane, heat_number } = req.body; // Allow admins to fix the time, lane, or heat
+    const {
+        event_number,
+        heat_number,
+        lane,
+        time_ms,
+        is_no_show,
+        is_dq,
+        dq_code,
+        dq_description,
+        official_initials
+    } = req.body;
 
     db.get('SELECT * FROM time_entries WHERE id = ?', [timeId], (err, row) => {
         if (err) return res.status(500).json({ error: err.message });
         if (!row) return res.status(404).json({ error: 'Time entry not found' });
 
+        const nextEventNumber = Number.isFinite(Number(event_number)) ? Number(event_number) : row.event_number;
+        const nextHeatNumber = Number.isFinite(Number(heat_number)) ? Number(heat_number) : row.heat_number;
+        const nextLane = Number.isFinite(Number(lane)) ? Number(lane) : row.lane;
+        const nextTimeMs = Number.isFinite(Number(time_ms)) ? Number(time_ms) : row.time_ms;
+        const nextIsNoShow = typeof is_no_show === 'boolean' ? (is_no_show ? 1 : 0) : (row.is_no_show ? 1 : 0);
+        const nextIsDq = typeof is_dq === 'boolean' ? (is_dq ? 1 : 0) : (row.is_dq ? 1 : 0);
+        const nextDqCode = nextIsDq ? (dq_code || null) : null;
+        const nextDqDescription = nextIsDq ? (dq_description || null) : null;
+        const nextOfficialInitials = nextIsDq ? (official_initials || null) : null;
+
         // If this is the FIRST time it's being edited, stash the original time into raw_time
         const rawTime = row.raw_time !== null ? row.raw_time : row.time_ms;
 
         db.run(
-            'UPDATE time_entries SET time_ms = ?, lane = ?, heat_number = ?, raw_time = ? WHERE id = ?',
-            [time_ms, lane, heat_number, rawTime, timeId],
+            `UPDATE time_entries
+             SET event_number = ?, heat_number = ?, lane = ?, time_ms = ?, is_no_show = ?,
+                 is_dq = ?, dq_code = ?, dq_description = ?, official_initials = ?, raw_time = ?
+             WHERE id = ?`,
+            [
+                nextEventNumber,
+                nextHeatNumber,
+                nextLane,
+                nextTimeMs,
+                nextIsNoShow,
+                nextIsDq,
+                nextDqCode,
+                nextDqDescription,
+                nextOfficialInitials,
+                rawTime,
+                timeId
+            ],
             function (updateErr) {
                 if (updateErr) return res.status(500).json({ error: updateErr.message });
 
                 // Rewrite the Maestro race file indicating a revision
-                db.all('SELECT * FROM time_entries WHERE meet_id = ? AND event_number = ? AND heat_number = ?', [row.meet_id, row.event_number, heat_number], (fetchErr, allRows) => {
+                db.all('SELECT * FROM time_entries WHERE meet_id = ? AND event_number = ? AND heat_number = ?', [row.meet_id, nextEventNumber, nextHeatNumber], (fetchErr, allRows) => {
                     if (!fetchErr && allRows) {
-                        writeRaceData(row.meet_id, 1, row.event_number, heat_number, allRows, true); // true = isRevision
+                        writeRaceData(row.meet_id, 1, nextEventNumber, nextHeatNumber, allRows, undefined, true);
+                        writeTimingSystemConfig(row.meet_id, nextEventNumber, nextHeatNumber);
                     }
                 });
 
@@ -180,7 +225,10 @@ app.get('/api/admin/meets/:id/results', (req, res) => {
 
 // --- Public API ---
 app.get('/api/export', (req, res) => {
-    db.all('SELECT * FROM time_entries ORDER BY created_at DESC', [], (err, rows) => {
+    const meetId = req.query.meet_id;
+    if (!meetId) return res.status(400).send('Missing meet_id');
+
+    db.all('SELECT * FROM time_entries WHERE meet_id = ? ORDER BY created_at DESC', [meetId], (err, rows) => {
         if (err) {
             res.status(500).send('Error generating export');
             return;
@@ -214,9 +262,10 @@ app.get('/api/export', (req, res) => {
 });
 
 app.get('/api/export/sd3', (req, res) => {
-    // 1. Get Meet Info (Just picking the first active one or similar for now, usually needs meet_id context)
-    // For demo/simplicity, we'll grab the most recent meet and its times.
-    db.get('SELECT * FROM meets ORDER BY created_at DESC LIMIT 1', [], (err, meet) => {
+    const meetId = req.query.meet_id;
+    if (!meetId) return res.status(400).send('Missing meet_id');
+
+    db.get('SELECT * FROM meets WHERE id = ?', [meetId], (err, meet) => {
         if (err || !meet) return res.status(404).send('No meet found');
 
         db.all('SELECT * FROM time_entries WHERE meet_id = ? ORDER BY event_number, heat_number, lane', [meet.id], (err, rows) => {
@@ -337,7 +386,7 @@ app.get('/api/sync/pending-files', (req, res) => {
 
         const files = fs.readdirSync(meetDir).filter(f => f.startsWith('session_') && f.endsWith('.json'));
 
-        db.all('SELECT filename FROM maestro_sync_receipts WHERE meet_id = ?', [row.id], (err, syncedRows) => {
+        db.all('SELECT filename FROM maestro_sync_receipts_scoped WHERE meet_id = ?', [row.id], (err, syncedRows) => {
             if (err) return res.status(500).json({ error: err.message });
 
             const syncedFiles = new Set(syncedRows.map(r => r.filename));
@@ -364,7 +413,7 @@ app.post('/api/sync/receipt', (req, res) => {
         if (err) return res.status(500).json({ error: err.message });
         if (!row) return res.status(401).json({ error: 'Unauthorized: Invalid Meet Code or Admin PIN.' });
 
-        const stmt = db.prepare('INSERT OR IGNORE INTO maestro_sync_receipts (filename, meet_id) VALUES (?, ?)');
+        const stmt = db.prepare('INSERT OR IGNORE INTO maestro_sync_receipts_scoped (filename, meet_id) VALUES (?, ?)');
         db.serialize(() => {
             filenames.forEach(filename => {
                 stmt.run([filename, row.id]);

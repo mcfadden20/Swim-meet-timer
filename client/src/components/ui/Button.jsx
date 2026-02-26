@@ -31,11 +31,13 @@ export function Button({
     variant = 'primary',
     size = 'md',
     className,
-    as: Component = 'button',
+    as = 'button',
     ...props
 }) {
+    const Tag = as;
+
     return (
-        <Component
+        <Tag
             className={cn(
                 'inline-flex items-center justify-center gap-2 font-mono transition-colors disabled:opacity-50 disabled:pointer-events-none',
                 variants[variant],
@@ -45,6 +47,6 @@ export function Button({
             {...props}
         >
             {children}
-        </Component>
+        </Tag>
     );
 }

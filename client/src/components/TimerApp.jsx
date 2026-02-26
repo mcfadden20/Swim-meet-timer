@@ -29,31 +29,33 @@ export default function TimerApp() {
     };
 
     return (
-        <div className="w-full h-screen bg-navy-900 text-slate-300 flex flex-col items-center justify-start p-4 font-mono overflow-hidden">
-            <header className="w-full max-w-md flex flex-col items-center py-2 mb-1 border-b border-navy-800">
-                <div className="w-full flex justify-between items-center mb-1">
+        <div className="w-full h-screen bg-[#1b1d21] text-white flex flex-col items-center justify-start p-4 overflow-hidden box-border">
+            <header className="w-full max-w-md flex flex-col items-center py-2 mb-4 border-b border-[#282a2f]">
+                <div className="w-full flex justify-between items-center mb-2">
                     <h1 className="text-xl font-bold tracking-tight text-cyan-400">
                         SWIM<span className="text-white"> TIMER</span>
                     </h1>
                     <div className="flex gap-2 items-center">
                         {activeMeet && (
                             <>
-                                <Link to="/official" className="text-[10px] uppercase font-bold bg-cyan-900/50 text-cyan-400 border border-cyan-400 px-2 py-1 rounded hover:bg-cyan-500 hover:text-white transition-colors">
+                                <Link to="/official" className="text-[10px] uppercase font-bold bg-[#f25b2a]/20 text-[#f25b2a] border border-[#f25b2a]/50 px-2 py-1 rounded hover:bg-[#f25b2a] hover:text-white transition-colors">
                                     Official Mode
                                 </Link>
-                                <button onClick={handleLeave} className="text-[10px] uppercase font-bold bg-red-900/50 text-red-500 border border-red-500 px-2 py-1 rounded hover:bg-red-500 hover:text-white transition-colors">
+                                <button onClick={handleLeave} className="text-[10px] uppercase font-bold bg-[#EF4444]/20 text-[#EF4444] border border-[#EF4444]/50 px-2 py-1 rounded hover:bg-[#EF4444] hover:text-white transition-colors">
                                     EXIT
                                 </button>
                             </>
                         )}
-                        <div className="w-2 h-2 rounded-full bg-cyan-400 animate-pulse"></div>
-                        <span className="text-xs font-bold text-cyan-400">ONLINE</span>
+                        <div className="w-2 h-2 rounded-full bg-[#10B981] animate-pulse shadow-[0_0_8px_rgba(16,185,129,0.8)]"></div>
+                        <span className="text-xs font-bold text-[#10B981] tracking-widest">ONLINE</span>
                     </div>
                 </div>
                 {activeMeet && (
-                    <div className="text-center">
+                    <div className="mt-2 text-center flex flex-col items-center gap-3">
                         <h2 className="text-sm font-bold text-white uppercase tracking-wider">{activeMeet.name}</h2>
-                        <div className="text-[10px] text-slate-500 font-mono leading-none">CODE: {activeMeet.access_code}</div>
+                        <div className="px-6 py-2 rounded-full bg-[#1b1d21] border border-[#f25b2a]/30">
+                            <span className="text-xs font-black tracking-[0.3em] text-[#8F92A1]">MEET CODE: <span className="text-[#f25b2a]">{activeMeet.access_code}</span></span>
+                        </div>
                     </div>
                 )}
             </header>
@@ -66,8 +68,8 @@ export default function TimerApp() {
 
             {/* Application Footer Placeholder */}
             {/* Note: Edit this block to add custom sponsor links, app versioning, or organization policies */}
-            <footer className="w-full text-center py-4 mt-auto border-t border-navy-800">
-                <p className="text-xs text-slate-500 uppercase tracking-widest font-bold">
+            <footer className="w-full text-center py-4 mt-auto border-t border-[#282a2f]">
+                <p className="text-xs text-[#8F92A1] uppercase tracking-widest font-bold">
                     Official Swim Timer
                 </p>
             </footer>

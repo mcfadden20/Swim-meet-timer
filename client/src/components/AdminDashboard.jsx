@@ -5,25 +5,11 @@ export default function AdminDashboard() {
     const [meets, setMeets] = useState([]);
     const [selectedMeet, setSelectedMeet] = useState(null);
     const [liveResults, setLiveResults] = useState([]);
-    const [maestroStatus, setMaestroStatus] = useState(null);
 
     const [editingId, setEditingId] = useState(null);
     const [editValues, setEditValues] = useState({});
 
-    useEffect(() => { fetchMeets(); }, []);
-
-    useEffect(() => {
-        if (!selectedMeet) return;
-        fetchResults(selectedMeet.id);
-        fetchMaestroStatus(selectedMeet.id);
-        const interval = setInterval(() => {
-            fetchResults(selectedMeet.id);
-            fetchMaestroStatus(selectedMeet.id);
-        }, 5000);
-        return () => clearInterval(interval);
-    }, [selectedMeet]);
-
-    const fetchMeets = async () => {
+    async function fetchMeets() {
         try {
             const res = await fetch('/api/admin/meets');
             if (res.ok) {
@@ -31,9 +17,9 @@ export default function AdminDashboard() {
                 setMeets(data);
             }
         } catch (e) { console.error('Failed to fetch meets', e); }
-    };
+    }
 
-    const fetchResults = async (meetId) => {
+    async function fetchResults(meetId) {
         try {
             const res = await fetch(`/api/admin/meets/${meetId}/results`);
             if (res.ok) {
@@ -41,17 +27,31 @@ export default function AdminDashboard() {
                 setLiveResults(data.results || []);
             } else { setLiveResults([]); }
         } catch (e) { console.error('Error fetching results:', e); setLiveResults([]); }
-    };
+    }
 
-    const fetchMaestroStatus = async (meetId) => {
-        try {
-            const res = await fetch(`/api/maestro/status?meet_id=${meetId}`);
-            if (res.ok) {
-                const data = await res.json();
-                setMaestroStatus(data);
-            }
-        } catch (e) { console.error('Failed to fetch Maestro status', e); }
-    };
+    useEffect(() => {
+        const kickoff = setTimeout(() => {
+            fetchMeets();
+        }, 0);
+
+        return () => clearTimeout(kickoff);
+    }, []);
+
+    useEffect(() => {
+        if (!selectedMeet) return;
+        const kickoff = setTimeout(() => {
+            fetchResults(selectedMeet.id);
+        }, 0);
+
+        const interval = setInterval(() => {
+            fetchResults(selectedMeet.id);
+        }, 5000);
+
+        return () => {
+            clearTimeout(kickoff);
+            clearInterval(interval);
+        };
+    }, [selectedMeet]);
 
     const formatTime = (ms) => {
         if (!ms) return '0:00.00';
@@ -62,17 +62,18 @@ export default function AdminDashboard() {
     };
 
     const parseTimeInput = (timeStr) => {
+        if (!timeStr || typeof timeStr !== 'string') return 0;
         const parts = timeStr.split(':');
         let totalMs = 0;
         if (parts.length > 1) {
-            totalMs += parseInt(parts[0]) * 60000;
+            totalMs += (parseInt(parts[0], 10) || 0) * 60000;
             const secParts = parts[1].split('.');
-            totalMs += parseInt(secParts[0]) * 1000;
-            if (secParts[1]) totalMs += parseInt(secParts[1].padEnd(2, '0').slice(0, 2)) * 10;
+            totalMs += (parseInt(secParts[0], 10) || 0) * 1000;
+            if (secParts[1]) totalMs += (parseInt(secParts[1].padEnd(2, '0').slice(0, 2), 10) || 0) * 10;
         } else {
             const secParts = parts[0].split('.');
-            totalMs += parseInt(secParts[0] || 0) * 1000;
-            if (secParts[1]) totalMs += parseInt(secParts[1].padEnd(2, '0').slice(0, 2)) * 10;
+            totalMs += (parseInt(secParts[0] || 0, 10) || 0) * 1000;
+            if (secParts[1]) totalMs += (parseInt(secParts[1].padEnd(2, '0').slice(0, 2), 10) || 0) * 10;
         }
         return totalMs;
     };
@@ -80,19 +81,32 @@ export default function AdminDashboard() {
     const handleEditClick = (res) => {
         setEditingId(res.id);
         setEditValues({
+            event_number: res.event_number,
             heat_number: res.heat_number,
             lane: res.lane,
             timeStr: formatTime(res.time_ms),
+            is_dq: !!res.is_dq,
+            dq_code: res.dq_code || '',
+            dq_description: res.dq_description || '',
+            official_initials: res.official_initials || '',
+            is_no_show: !!res.is_no_show,
         });
     };
 
     const handleEditSave = async (id) => {
         try {
             const time_ms = parseTimeInput(editValues.timeStr);
+            const isDQ = !!editValues.is_dq;
             const payload = {
+                event_number: Number(editValues.event_number),
                 heat_number: Number(editValues.heat_number),
                 lane: Number(editValues.lane),
                 time_ms,
+                is_dq: isDQ,
+                dq_code: isDQ ? (editValues.dq_code || null) : null,
+                dq_description: isDQ ? (editValues.dq_description || null) : null,
+                official_initials: isDQ ? (editValues.official_initials || null) : null,
+                is_no_show: !!editValues.is_no_show,
             };
             const response = await fetch(`/api/times/${id}`, {
                 method: 'PUT',
@@ -194,10 +208,10 @@ export default function AdminDashboard() {
                                 </div>
 
                                 <div className="flex gap-6 shrink-0 pt-2 mr-[40px] mt-[18px]">
-                                    <a href="/api/export" target="_blank" className={`flex items-center gap-3 px-8 py-4 mr-[8px] rounded-full bg-[#282a2f] ${buttonShadow} active:${pushedInner} text-sm font-bold text-[#8F92A1] hover:text-white transition-all`}>
+                                    <a href={`/api/export?meet_id=${selectedMeet.id}`} target="_blank" className={`flex items-center gap-3 px-8 py-4 mr-[8px] rounded-full bg-[#282a2f] ${buttonShadow} active:${pushedInner} text-sm font-bold text-[#8F92A1] hover:text-white transition-all`}>
                                         <Download className="w-5 h-5 text-[#f25b2a]" /> CSV
                                     </a>
-                                    <a href="/api/export/sd3" target="_blank" className={`flex items-center gap-3 px-8 py-4 rounded-full bg-[#282a2f] ${buttonShadow} active:${pushedInner} text-sm font-bold text-[#8F92A1] hover:text-white transition-all`}>
+                                    <a href={`/api/export/sd3?meet_id=${selectedMeet.id}`} target="_blank" className={`flex items-center gap-3 px-8 py-4 rounded-full bg-[#282a2f] ${buttonShadow} active:${pushedInner} text-sm font-bold text-[#8F92A1] hover:text-white transition-all`}>
                                         <Download className="w-5 h-5 text-[#f25b2a]" /> SD3
                                     </a>
                                 </div>
@@ -216,31 +230,125 @@ export default function AdminDashboard() {
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {liveResults.map((res, idx) => (
-                                            <tr key={res.id} className={`transition-all ${idx % 2 === 0 ? 'bg-[#1b1d21]/20' : ''} hover:bg-[#1b1d21]/40`}>
-                                                <td className="px-8 py-6 first:rounded-l-[20px] font-mono text-xs text-[#8F92A1]">
-                                                    {new Date(res.created_at).toLocaleTimeString()}
-                                                </td>
-                                                <td className="px-8 py-6 font-bold text-lg">{res.event_number}</td>
-                                                <td className="px-8 py-6 font-mono text-sm text-[#8F92A1]">H{res.heat_number}</td>
-                                                <td className="px-8 py-6">
-                                                    <div className="flex items-center gap-3">
-                                                        <div className="w-2 h-2 rounded-full bg-[#f25b2a] shadow-[0_0_10px_#f25b2a]" />
-                                                        <span className="font-mono font-black text-base">L{res.lane}</span>
-                                                    </div>
-                                                </td>
-                                                <td className="px-8 py-6 text-right">
-                                                    <span className="text-2xl font-black font-mono tracking-tighter">{formatTime(res.time_ms)}</span>
-                                                </td>
-                                                <td className="px-8 py-6 last:rounded-r-[20px]">
-                                                    <div className="flex justify-center">
-                                                        <button onClick={() => handleEditClick(res)} className={`w-12 h-12 rounded-full bg-[#282a2f] ${buttonShadow} active:${pushedInner} flex items-center justify-center text-[#8F92A1] hover:text-[#f25b2a] transition-all`}>
-                                                            <Edit2 className="w-5 h-5" />
-                                                        </button>
-                                                    </div>
-                                                </td>
-                                            </tr>
-                                        ))}
+                                        {liveResults.map((res, idx) => {
+                                            const isEditing = editingId === res.id;
+                                            return (
+                                                <tr key={res.id} className={`transition-all ${idx % 2 === 0 ? 'bg-[#1b1d21]/20' : ''} hover:bg-[#1b1d21]/40`}>
+                                                    <td className="px-8 py-6 first:rounded-l-[20px] font-mono text-xs text-[#8F92A1]">
+                                                        {new Date(res.created_at).toLocaleTimeString()}
+                                                    </td>
+                                                    <td className="px-8 py-6 font-bold text-lg">
+                                                        {isEditing ? (
+                                                            <input
+                                                                type="number"
+                                                                className={`w-16 bg-[#282a2f] ${pushedInner} rounded-xl px-3 py-2 text-white font-mono text-sm focus:outline-none focus:ring-1 focus:ring-[#f25b2a]`}
+                                                                value={editValues.event_number}
+                                                                onChange={(e) => setEditValues({ ...editValues, event_number: e.target.value })}
+                                                            />
+                                                        ) : (
+                                                            res.event_number
+                                                        )}
+                                                    </td>
+                                                    <td className="px-8 py-6 font-mono text-sm text-[#8F92A1]">
+                                                        {isEditing ? (
+                                                            <input type="number" className={`w-16 bg-[#282a2f] ${pushedInner} rounded-xl px-3 py-2 text-white font-mono text-sm focus:outline-none focus:ring-1 focus:ring-[#f25b2a]`} value={editValues.heat_number} onChange={(e) => setEditValues({ ...editValues, heat_number: e.target.value })} />
+                                                        ) : (
+                                                            `H${res.heat_number}`
+                                                        )}
+                                                    </td>
+                                                    <td className="px-8 py-6">
+                                                        {isEditing ? (
+                                                            <input type="number" className={`w-16 bg-[#282a2f] ${pushedInner} rounded-xl px-3 py-2 text-white font-mono text-sm focus:outline-none focus:ring-1 focus:ring-[#f25b2a]`} value={editValues.lane} onChange={(e) => setEditValues({ ...editValues, lane: e.target.value })} />
+                                                        ) : (
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="w-2 h-2 rounded-full bg-[#f25b2a] shadow-[0_0_10px_#f25b2a]" />
+                                                                <span className="font-mono font-black text-base">L{res.lane}</span>
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-8 py-6 text-right">
+                                                        {isEditing ? (
+                                                            <div className="flex flex-col items-end gap-2">
+                                                                <input
+                                                                    type="text"
+                                                                    className={`w-32 bg-[#282a2f] ${pushedInner} rounded-xl px-4 py-2 text-right text-[#f25b2a] font-mono text-base font-bold focus:outline-none focus:ring-1 focus:ring-[#f25b2a]`}
+                                                                    value={editValues.timeStr}
+                                                                    onChange={(e) => setEditValues({ ...editValues, timeStr: e.target.value })}
+                                                                    disabled={!!editValues.is_dq || !!editValues.is_no_show}
+                                                                />
+                                                                <label className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-[#8F92A1] font-bold">
+                                                                    <input
+                                                                        type="checkbox"
+                                                                        checked={!!editValues.is_dq}
+                                                                        onChange={(e) => setEditValues({ ...editValues, is_dq: e.target.checked, is_no_show: e.target.checked ? false : !!editValues.is_no_show })}
+                                                                    />
+                                                                    DQ
+                                                                </label>
+                                                                {editValues.is_dq ? (
+                                                                    <div className="flex gap-2">
+                                                                        <input
+                                                                            type="text"
+                                                                            placeholder="Code"
+                                                                            className={`w-20 bg-[#282a2f] ${pushedInner} rounded-xl px-3 py-2 text-white font-mono text-xs focus:outline-none focus:ring-1 focus:ring-[#f25b2a]`}
+                                                                            value={editValues.dq_code}
+                                                                            onChange={(e) => setEditValues({ ...editValues, dq_code: e.target.value })}
+                                                                        />
+                                                                        <input
+                                                                            type="text"
+                                                                            placeholder="Init"
+                                                                            className={`w-20 bg-[#282a2f] ${pushedInner} rounded-xl px-3 py-2 text-white font-mono text-xs focus:outline-none focus:ring-1 focus:ring-[#f25b2a]`}
+                                                                            value={editValues.official_initials}
+                                                                            onChange={(e) => setEditValues({ ...editValues, official_initials: e.target.value })}
+                                                                        />
+                                                                    </div>
+                                                                ) : (
+                                                                    <label className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-[#8F92A1] font-bold">
+                                                                        <input
+                                                                            type="checkbox"
+                                                                            checked={!!editValues.is_no_show}
+                                                                            onChange={(e) => setEditValues({ ...editValues, is_no_show: e.target.checked, is_dq: e.target.checked ? false : !!editValues.is_dq })}
+                                                                        />
+                                                                        No Show
+                                                                    </label>
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            <div className="flex flex-col items-end">
+                                                                {res.is_dq ? (
+                                                                    <span className="text-[#EF4444] font-bold text-[10px] uppercase tracking-widest bg-[#EF4444]/10 px-3 py-1.5 rounded-full">
+                                                                        DQ: {res.dq_code}
+                                                                    </span>
+                                                                ) : res.is_no_show ? (
+                                                                    <span className="text-[#8F92A1] font-bold text-[10px] uppercase tracking-widest bg-[#1b1d21]/50 px-3 py-1.5 rounded-full">
+                                                                        No Show
+                                                                    </span>
+                                                                ) : (
+                                                                    <span className="text-2xl font-black font-mono tracking-tighter">{formatTime(res.time_ms)}</span>
+                                                                )}
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-8 py-6 last:rounded-r-[20px]">
+                                                        {isEditing ? (
+                                                            <div className="flex justify-center gap-3">
+                                                                <button onClick={() => handleEditSave(res.id)} className={`w-12 h-12 rounded-full bg-[#282a2f] ${buttonShadow} active:${pushedInner} flex items-center justify-center text-[#10B981] hover:text-[#10B981] transition-all`}>
+                                                                    <Save className="w-5 h-5" />
+                                                                </button>
+                                                                <button onClick={() => setEditingId(null)} className={`w-12 h-12 rounded-full bg-[#282a2f] ${buttonShadow} active:${pushedInner} flex items-center justify-center text-[#EF4444] hover:text-[#EF4444] transition-all`}>
+                                                                    <X className="w-5 h-5" />
+                                                                </button>
+                                                            </div>
+                                                        ) : (
+                                                            <div className="flex justify-center">
+                                                                <button onClick={() => handleEditClick(res)} className={`w-12 h-12 rounded-full bg-[#282a2f] ${buttonShadow} active:${pushedInner} flex items-center justify-center text-[#8F92A1] hover:text-[#f25b2a] transition-all`}>
+                                                                    <Edit2 className="w-5 h-5" />
+                                                                </button>
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            );
+                                        })}
                                     </tbody>
                                 </table>
                             </div>

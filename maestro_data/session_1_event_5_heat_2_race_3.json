@@ -1,0 +1,21 @@
+{
+  "createdAt": "2026-02-26T01:23:55.069Z",
+  "protocolVersion": "1.2.3",
+  "lanes": [
+    {
+      "lane": 3,
+      "timer1": "00:01:05.432",
+      "isEmpty": false
+    },
+    {
+      "lane": 4,
+      "timer1": null,
+      "isEmpty": true
+    },
+    {
+      "lane": 5,
+      "timer1": null,
+      "isEmpty": false
+    }
+  ]
+}

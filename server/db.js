@@ -90,6 +90,22 @@ db.serialize(() => {
       synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  // 6. Maestro Sync Receipts (Meet-Scoped)
+  db.run(`
+    CREATE TABLE IF NOT EXISTS maestro_sync_receipts_scoped (
+      filename TEXT NOT NULL,
+      meet_id INTEGER NOT NULL,
+      synced_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (filename, meet_id)
+    )
+  `, () => {
+    db.run(`
+      INSERT OR IGNORE INTO maestro_sync_receipts_scoped (filename, meet_id, synced_at)
+      SELECT filename, meet_id, synced_at FROM maestro_sync_receipts
+      WHERE meet_id IS NOT NULL
+    `, () => { });
+  });
 });
 
 export default db;
