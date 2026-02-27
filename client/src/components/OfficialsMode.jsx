@@ -22,18 +22,48 @@ export default function OfficialsMode() {
     const [successMsg, setSuccessMsg] = useState('');
 
     const [isAuthenticated, setIsAuthenticated] = useState(() => {
-        return activeMeet && !activeMeet.admin_pin;
+        if (!activeMeet?.id) return false;
+        return sessionStorage.getItem(`official-auth-${activeMeet.id}`) === 'true';
     });
     const [pinInput, setPinInput] = useState('');
     const [pinError, setPinError] = useState(false);
+    const [pinLoading, setPinLoading] = useState(false);
 
-    const handlePinSubmit = () => {
-        if (pinInput === activeMeet.admin_pin) {
-            setIsAuthenticated(true);
-        } else {
+    const handlePinSubmit = async () => {
+        if (!activeMeet?.id || !pinInput.trim()) {
+            setPinError(true);
+            setTimeout(() => setPinError(false), 2000);
+            return;
+        }
+
+        setPinLoading(true);
+        try {
+            const res = await fetch('/api/official/verify-pin', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    meet_id: activeMeet.id,
+                    admin_pin: pinInput.trim()
+                })
+            });
+
+            if (res.ok) {
+                setIsAuthenticated(true);
+                setPinError(false);
+                sessionStorage.setItem(`official-auth-${activeMeet.id}`, 'true');
+                sessionStorage.setItem(`official-pin-${activeMeet.id}`, pinInput.trim());
+                if (navigator.vibrate) navigator.vibrate(50);
+            } else {
+                setPinError(true);
+                setTimeout(() => setPinError(false), 2000);
+                if (navigator.vibrate) navigator.vibrate(200);
+            }
+        } catch {
             setPinError(true);
             setTimeout(() => setPinError(false), 2000);
             if (navigator.vibrate) navigator.vibrate(200);
+        } finally {
+            setPinLoading(false);
         }
     };
 
@@ -77,8 +107,14 @@ export default function OfficialsMode() {
         }
 
         setIsSubmitting(true);
+        const adminPin = sessionStorage.getItem(`official-pin-${activeMeet.id}`) || '';
+        const [dqCodePart, ...descriptionParts] = (selectedCode || '').split(' - ');
+        const dqCode = dqCodePart || null;
+        const dqDescription = descriptionParts.join(' - ') || null;
+
         const payload = {
             meet_id: activeMeet.id,
+            admin_pin: adminPin,
             event_number: Number(eventNum),
             heat_number: Number(heatNum),
             lane: Number(laneNum),
@@ -86,13 +122,13 @@ export default function OfficialsMode() {
             is_no_show: false,
             swimmer_name: '',
             is_dq: true,
-            dq_code: selectedCode.split(' - ')[0],
-            dq_description: selectedCode.split(' - ')[1],
+            dq_code: dqCode,
+            dq_description: dqDescription,
             official_initials: initials.toUpperCase()
         };
 
         try {
-            const res = await fetch('/api/times', {
+            const res = await fetch('/api/official/submit-dq', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
@@ -100,7 +136,22 @@ export default function OfficialsMode() {
 
             if (res.ok) {
                 setSuccessMsg('DQ Submitted Successfully');
-                if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+                if (navigator.vibrate) navigator.vibrate(90);
+                setInitials('');
+                setLaneNum(1);
+                setHeatNum(1);
+                if (maestroEvents.length > 0) {
+                    setEventNum(Number(maestroEvents[0].eventNumber));
+                } else {
+                    setEventNum(1);
+                }
+                const firstStroke = Object.keys(dqCodes)[0] || '';
+                setSelectedStroke(firstStroke);
+                if (firstStroke && dqCodes[firstStroke]?.length > 0) {
+                    setSelectedCode(dqCodes[firstStroke][0]);
+                } else {
+                    setSelectedCode('');
+                }
                 setTimeout(() => setSuccessMsg(''), 3000);
             } else {
                 alert('Failed to submit DQ.');
@@ -115,11 +166,11 @@ export default function OfficialsMode() {
 
     if (!activeMeet) {
         return (
-            <div className="w-full h-screen bg-navy-900 text-white flex flex-col items-center justify-center p-4">
-                <ShieldAlert className="w-16 h-16 text-red-500 mb-4" />
-                <h1 className="text-xl font-bold mb-2">No Active Meet</h1>
-                <p className="text-slate-400 text-center mb-6">You must join a meet from the main Timer screen first before acting as an Official.</p>
-                <Link to="/" className="bg-cyan-400 text-navy-900 px-6 py-3 rounded-xl font-bold text-lg">
+            <div className="w-screen h-screen bg-[#1b1d21] text-white flex flex-col items-center justify-center p-4 overflow-hidden">
+                <ShieldAlert className="w-16 h-16 text-[#f25b2a] mb-4" />
+                <h1 className="text-xl font-bold mb-2 italic uppercase">No Active Meet</h1>
+                <p className="text-[#8F92A1] text-center mb-6">You must join a meet from the main Timer screen first before acting as an Official.</p>
+                <Link to="/" className="bg-[linear-gradient(135deg,#f25b2a_0%,#e83323_100%)] text-white px-6 py-3 rounded-full font-bold text-lg">
                     Return to Timer
                 </Link>
             </div>
@@ -128,56 +179,61 @@ export default function OfficialsMode() {
 
     if (!isAuthenticated) {
         return (
-            <div className="w-full h-screen bg-navy-900 text-white flex flex-col items-center justify-center p-4 font-mono">
-                <ShieldAlert className="w-16 h-16 text-cyan-400 mb-4" />
-                <h1 className="text-xl font-bold mb-2">STAFF AUTHORIZATION</h1>
-                <p className="text-slate-400 text-center mb-6">Enter the Meet PIN to access Officials Mode.</p>
-                <div className="flex flex-col items-center">
-                    <input
-                        type="tel"
-                        value={pinInput}
-                        onChange={(e) => setPinInput(e.target.value)}
-                        placeholder="PIN"
-                        className={`w-32 bg-navy-800 border-2 rounded-xl text-center text-3xl font-black py-4 mb-4 outline-none transition-colors ${pinError ? 'border-red-500 text-red-500' : 'border-white/10 text-white focus:border-cyan-400'}`}
-                    />
-                    <button
-                        onClick={handlePinSubmit}
-                        className="bg-cyan-400 text-navy-900 px-8 py-3 rounded-xl font-black text-lg w-32"
-                    >
-                        GO
-                    </button>
-                    <Link to="/" className="text-slate-500 mt-6 text-sm underline">Cancel</Link>
+            <div className="w-screen h-screen bg-[#1b1d21] text-white flex flex-col items-center justify-center p-4 font-mono overflow-hidden">
+                <div className="bg-[#282a2f] p-10 rounded-[40px] shadow-[12px_12px_25px_#0e0f11,-12px_-12px_25px_#363940] flex flex-col items-center gap-8">
+                    <ShieldAlert className="w-16 h-16 text-[#f25b2a]" />
+                    <h1 className="text-2xl font-black mb-2 italic uppercase tracking-widest">Staff Authorization</h1>
+                    <p className="text-[#8F92A1] text-center max-w-xs">Enter the Meet PIN to access Officials Mode.</p>
+                    <div className="flex flex-col items-center gap-4">
+                        <input
+                            type="tel"
+                            value={pinInput}
+                            onChange={(e) => setPinInput(e.target.value)}
+                            placeholder="PIN"
+                            className={`w-40 text-center text-4xl font-black py-4 rounded-[24px] font-mono outline-none transition-colors shadow-[inset_4px_4px_8px_#101214,inset_-4px_-4px_8px_#363940] bg-[#282a2f] ${
+                                pinError ? 'text-[#EF4444]' : 'text-[#f25b2a]'
+                            }`}
+                        />
+                        <button
+                            onClick={handlePinSubmit}
+                            disabled={pinLoading}
+                            className="bg-[linear-gradient(135deg,#f25b2a_0%,#e83323_100%)] text-white px-8 py-3 rounded-full font-black text-lg w-40 disabled:opacity-60 shadow-[6px_6px_12px_#0e0f11,-6px_-6px_12px_#363940]"
+                        >
+                            {pinLoading ? '...' : 'GO'}
+                        </button>
+                        <Link to="/" className="text-[#8F92A1] mt-4 text-sm underline hover:text-white transition-colors">Cancel</Link>
+                    </div>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="w-full h-screen bg-navy-900 text-slate-300 flex flex-col items-center justify-start p-4 font-mono overflow-auto pb-8">
-            <header className="w-full max-w-md flex items-center justify-between py-2 mb-4 border-b border-navy-800">
-                <Link to="/" className="p-2 hover:bg-white/10 rounded-lg transition-colors">
-                    <ArrowLeft className="w-6 h-6 text-slate-400" />
+        <div className="w-screen h-screen bg-[#1b1d21] text-[#8F92A1] flex flex-col items-center justify-start p-6 font-mono overflow-hidden pb-8" style={{ overflowY: 'auto' }}>
+            <header className="w-full max-w-2xl flex items-center justify-between py-4 mb-6 px-8 bg-[#282a2f] rounded-[40px] shadow-[12px_12px_25px_#0e0f11,-12px_-12px_25px_#363940]">
+                <Link to="/" className="p-2 hover:bg-white/10 rounded-full transition-colors">
+                    <ArrowLeft className="w-6 h-6 text-[#8F92A1]" />
                 </Link>
-                <div className="flex flex-col items-center">
-                    <h1 className="text-xl font-bold tracking-tight text-red-500 flex items-center gap-2">
-                        <ShieldAlert className="w-5 h-5" />  OFFICIALS MODE
+                <div className="flex flex-col items-center flex-1">
+                    <h1 className="text-xl font-black tracking-widest text-[#f25b2a] flex items-center gap-2 italic uppercase">
+                        <ShieldAlert className="w-5 h-5" /> Officials Mode
                     </h1>
-                    <span className="text-xs font-bold text-slate-500">{activeMeet.name}</span>
+                    <span className="text-xs font-bold text-[#8F92A1] mt-1">{activeMeet.name}</span>
                 </div>
-                <div className="w-10"></div> {/* Spacer for centering */}
+                <div className="w-10"></div>
             </header>
 
-            <div className="w-full max-w-md flex flex-col gap-4">
+            <div className="w-full max-w-2xl flex flex-col gap-6">
 
                 {/* Inputs - Event, Heat, Lane */}
-                <div className="flex justify-between gap-2 bg-navy-800 py-4 px-2 rounded-xl border border-navy-800">
+                <div className="flex justify-between gap-4 bg-[#282a2f] py-6 px-6 rounded-[40px] shadow-[12px_12px_25px_#0e0f11,-12px_-12px_25px_#363940]">
                     <div className="flex flex-col items-center w-1/3">
-                        <span className="text-[10px] text-red-400 uppercase font-bold tracking-wider mb-2">Event</span>
+                        <span className="text-[10px] text-[#f25b2a] uppercase font-bold tracking-widest mb-3">Event</span>
                         {maestroEvents.length > 0 ? (
                             <select
                                 value={eventNum}
                                 onChange={(e) => setEventNum(e.target.value)}
-                                className="w-full bg-navy-900 border border-white/10 rounded-lg py-3 px-1 text-center text-sm font-bold text-white outline-none"
+                                className="w-full bg-[#1b1d21] rounded-[24px] py-3 px-3 text-center text-lg font-mono font-bold text-[#f25b2a] outline-none shadow-[inset_4px_4px_8px_#101214,inset_-4px_-4px_8px_#363940]"
                             >
                                 {maestroEvents.map(ev => (
                                     <option key={ev.eventNumber} value={ev.eventNumber}>{ev.eventNumber}</option>
@@ -188,7 +244,7 @@ export default function OfficialsMode() {
                                 type="number"
                                 value={eventNum}
                                 onChange={(e) => setEventNum(Number(e.target.value))}
-                                className="w-full bg-navy-900 border border-white/10 rounded-lg py-2 text-center text-xl font-black text-white outline-none"
+                                className="w-full bg-[#1b1d21] rounded-[24px] py-3 px-3 text-center text-xl font-mono font-bold text-[#f25b2a] outline-none shadow-[inset_4px_4px_8px_#101214,inset_-4px_-4px_8px_#363940]"
                             />
                         )}
                     </div>
@@ -197,11 +253,11 @@ export default function OfficialsMode() {
                         const setVal = idx === 0 ? setHeatNum : setLaneNum;
                         return (
                             <div key={label} className="flex flex-col items-center w-1/3">
-                                <span className="text-[10px] text-red-400 uppercase font-bold tracking-wider mb-2">{label}</span>
-                                <div className="flex items-center w-full bg-navy-900 rounded-lg border border-white/5">
-                                    <button className="px-2 py-3 text-slate-500 hover:text-white" onClick={() => setVal(v => Math.max(1, Number(v) - 1))}>-</button>
-                                    <input type="number" value={val} onChange={(e) => setVal(Number(e.target.value))} className="no-spinners w-full bg-transparent text-center text-xl font-black text-white outline-none" />
-                                    <button className="px-2 py-3 text-slate-500 hover:text-white" onClick={() => setVal(v => Number(v) + 1)}>+</button>
+                                <span className="text-[10px] text-[#f25b2a] uppercase font-bold tracking-widest mb-3">{label}</span>
+                                <div className="flex items-center w-full bg-[#1b1d21] rounded-[24px] shadow-[inset_4px_4px_8px_#101214,inset_-4px_-4px_8px_#363940]">
+                                    <button className="px-3 py-3 text-[#8F92A1] hover:text-[#f25b2a] font-bold text-lg" onClick={() => setVal(v => Math.max(1, Number(v) - 1))}>−</button>
+                                    <input type="number" value={val} onChange={(e) => setVal(Number(e.target.value))} className="no-spinners w-full bg-transparent text-center text-xl font-mono font-bold text-[#f25b2a] outline-none" />
+                                    <button className="px-3 py-3 text-[#8F92A1] hover:text-[#f25b2a] font-bold text-lg" onClick={() => setVal(v => Number(v) + 1)}>+</button>
                                 </div>
                             </div>
                         );
@@ -209,13 +265,13 @@ export default function OfficialsMode() {
                 </div>
 
                 {/* DQ Selection */}
-                <div className="bg-navy-800 p-4 rounded-xl border border-red-500/30 flex flex-col gap-4">
+                <div className="bg-[#282a2f] p-6 rounded-[40px] shadow-[12px_12px_25px_#0e0f11,-12px_-12px_25px_#363940] flex flex-col gap-4">
                     <div>
-                        <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Stroke Category</label>
+                        <label className="block text-xs font-bold text-[#f25b2a] uppercase tracking-widest mb-3">Stroke Category</label>
                         <select
                             value={selectedStroke}
                             onChange={(e) => setSelectedStroke(e.target.value)}
-                            className="w-full bg-navy-900 text-white p-3 rounded-lg border border-white/10 font-bold outline-none focus:border-red-500"
+                            className="w-full bg-[#1b1d21] text-[#f25b2a] p-3 rounded-[24px] font-bold outline-none shadow-[inset_4px_4px_8px_#101214,inset_-4px_-4px_8px_#363940]"
                         >
                             {Object.keys(dqCodes).map(stroke => (
                                 <option key={stroke} value={stroke}>{stroke}</option>
@@ -224,11 +280,11 @@ export default function OfficialsMode() {
                     </div>
 
                     <div>
-                        <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Infraction Code</label>
+                        <label className="block text-xs font-bold text-[#f25b2a] uppercase tracking-widest mb-3">Infraction Code</label>
                         <select
                             value={selectedCode}
                             onChange={(e) => setSelectedCode(e.target.value)}
-                            className="w-full bg-navy-900 text-white p-3 rounded-lg border border-white/10 font-bold outline-none focus:border-red-500 text-sm"
+                            className="w-full bg-[#1b1d21] text-[#f25b2a] p-3 rounded-[24px] font-mono font-bold outline-none shadow-[inset_4px_4px_8px_#101214,inset_-4px_-4px_8px_#363940] text-sm"
                         >
                             {selectedStroke && dqCodes[selectedStroke]?.map(code => (
                                 <option key={code} value={code}>{code}</option>
@@ -238,15 +294,15 @@ export default function OfficialsMode() {
                 </div>
 
                 {/* Official Authorization */}
-                <div className="bg-navy-800 p-4 rounded-xl border border-white/5 flex flex-col items-center">
-                    <label className="block text-xs font-bold text-slate-400 uppercase mb-2">Official Initials</label>
+                <div className="bg-[#282a2f] p-6 rounded-[40px] shadow-[12px_12px_25px_#0e0f11,-12px_-12px_25px_#363940] flex flex-col items-center">
+                    <label className="block text-xs font-bold text-[#f25b2a] uppercase tracking-widest mb-4">Official Initials</label>
                     <input
                         type="text"
                         value={initials}
                         onChange={(e) => setInitials(e.target.value)}
-                        placeholder="e.g. MM"
+                        placeholder="e.g. AB"
                         maxLength={4}
-                        className="w-24 text-center bg-navy-900 text-white p-3 rounded-lg border border-white/10 font-black text-xl uppercase outline-none focus:border-red-500"
+                        className="w-28 text-center bg-[#1b1d21] text-[#f25b2a] p-3 rounded-[24px] font-black text-xl uppercase outline-none shadow-[inset_4px_4px_8px_#101214,inset_-4px_-4px_8px_#363940]"
                     />
                 </div>
 
@@ -254,12 +310,12 @@ export default function OfficialsMode() {
                 <button
                     onClick={handleSubmit}
                     disabled={isSubmitting || !initials}
-                    className="w-full py-6 mt-2 rounded-2xl flex flex-col items-center justify-center gap-2 bg-red-600 text-white shadow-lg shadow-red-600/20 active:scale-95 transition-all disabled:opacity-50"
+                    className="w-full py-6 rounded-[40px] flex flex-col items-center justify-center gap-3 bg-[linear-gradient(135deg,#f25b2a_0%,#e83323_100%)] text-white shadow-[12px_12px_25px_#0e0f11,-12px_-12px_25px_#363940] active:scale-95 transition-all disabled:opacity-50"
                 >
                     {successMsg ? (
-                        <><CheckCircle className="w-8 h-8" /><span className="text-xl font-black tracking-widest uppercase">{successMsg}</span></>
+                        <><CheckCircle className="w-8 h-8" /><span className="text-lg font-black tracking-widest italic uppercase">{successMsg}</span></>
                     ) : (
-                        <><ShieldAlert className="w-10 h-10" /><span className="text-2xl font-black tracking-widest uppercase">SUBMIT DQ</span></>
+                        <><ShieldAlert className="w-10 h-10" /><span className="text-xl font-black tracking-widest italic uppercase">Submit DQ</span></>
                     )}
                 </button>
 

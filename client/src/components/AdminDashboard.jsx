@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
-import { Download, Plus, Timer, Activity, Save, X, Edit2, Info } from 'lucide-react';
+import { Download, Plus, Timer, Activity, Save, X, Edit2, Info, Eye, EyeOff } from 'lucide-react';
 
 export default function AdminDashboard() {
     const [meets, setMeets] = useState([]);
     const [selectedMeet, setSelectedMeet] = useState(null);
     const [liveResults, setLiveResults] = useState([]);
+    const [revealedPins, setRevealedPins] = useState({});
 
     const [editingId, setEditingId] = useState(null);
     const [editValues, setEditValues] = useState({});
@@ -169,6 +170,10 @@ export default function AdminDashboard() {
                     <div className={`flex-1 overflow-y-auto ${scrollbarClasses} flex flex-col gap-8 pb-4 px-2`}>
                         {meets.map((meet) => {
                             const isActive = selectedMeet?.id === meet.id;
+                            const isPinRevealed = !!revealedPins[meet.id];
+                            const adminPinDisplay = isPinRevealed
+                                ? String(meet.admin_pin || '').padStart(4, '0')
+                                : '****';
                             return (
                                 <div
                                     key={meet.id}
@@ -182,6 +187,23 @@ export default function AdminDashboard() {
                                     <div className="rounded-2xl p-4 flex justify-between items-center mb-[8px] mt-[-16px]">
                                         <span className="text-[10px] text-[#8F92A1] uppercase font-bold ml-[4px]">Entry Code</span>
                                         <span className="font-mono text-sm font-bold text-[#f25b2a] mr-[20px]">{meet.access_code}</span>
+                                    </div>
+                                    <div className="rounded-2xl p-4 flex justify-between items-center mt-[-20px]">
+                                        <span className="text-[10px] text-[#8F92A1] uppercase font-bold ml-[4px]">Admin PIN</span>
+                                        <div className={`flex items-center gap-2 px-3 py-2 rounded-xl bg-[#282a2f] ${pushedInner}`}>
+                                            <span className="font-mono text-sm font-bold text-[#f25b2a] min-w-[46px] text-right">{adminPinDisplay}</span>
+                                            <button
+                                                type="button"
+                                                onClick={(e) => {
+                                                    e.stopPropagation();
+                                                    setRevealedPins(prev => ({ ...prev, [meet.id]: !prev[meet.id] }));
+                                                }}
+                                                className={`w-8 h-8 rounded-full bg-[#282a2f] ${buttonShadow} active:${pushedInner} flex items-center justify-center text-[#8F92A1] hover:text-[#f25b2a] transition-all`}
+                                                aria-label={isPinRevealed ? 'Hide Admin PIN' : 'Show Admin PIN'}
+                                            >
+                                                {isPinRevealed ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             );

@@ -6,7 +6,8 @@
   "scripts": {
     "build": "cd client && npm install && npm run build",
     "postinstall": "cd client && npm install && npm run build",
-    "start": "node server/index.js"
+    "start": "node server/index.js",
+    "test:security": "node tests/security.test.js"
   },
   "dependencies": {
     "adm-zip": "^0.5.16",

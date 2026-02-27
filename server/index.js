@@ -14,6 +14,151 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
+function generateUniqueAdminPin(callback, attempts = 0) {
+    if (attempts >= 100) {
+        callback(new Error('Unable to generate unique 4-digit admin PIN after multiple attempts.'));
+        return;
+    }
+
+    const pin = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+    db.get('SELECT id FROM meets WHERE admin_pin = ? LIMIT 1', [pin], (err, row) => {
+        if (err) return callback(err);
+        if (!row) return callback(null, pin);
+        generateUniqueAdminPin(callback, attempts + 1);
+    });
+}
+
+function createMeetWithUniquePin({ orgId, name, accessCode }, callback, attempts = 0) {
+    if (attempts >= 20) {
+        callback(new Error('Unable to create meet with a unique admin PIN.'));
+        return;
+    }
+
+    generateUniqueAdminPin((pinErr, admin_pin) => {
+        if (pinErr) return callback(pinErr);
+
+        db.run('INSERT INTO meets (org_id, name, access_code, admin_pin) VALUES (?, ?, ?, ?)', [orgId, name, accessCode, admin_pin], function (err) {
+            if (err && String(err.message || '').includes('UNIQUE constraint failed: meets.admin_pin')) {
+                createMeetWithUniquePin({ orgId, name, accessCode }, callback, attempts + 1);
+                return;
+            }
+            if (err) return callback(err);
+            callback(null, { id: this.lastID, admin_pin });
+        });
+    });
+}
+
+function saveTimeEntry(payload, callback) {
+    const {
+        meet_id,
+        event_number,
+        heat_number,
+        lane,
+        time_ms,
+        is_no_show,
+        swimmer_name,
+        is_dq,
+        dq_code,
+        dq_description,
+        official_initials
+    } = payload;
+
+    const finish = (entryId) => {
+        db.all('SELECT * FROM time_entries WHERE meet_id = ? AND event_number = ? AND heat_number = ?', [meet_id, event_number, heat_number], (fetchErr, rows) => {
+            if (!fetchErr && rows) {
+                writeRaceData(meet_id, 1, event_number, heat_number, rows);
+                writeTimingSystemConfig(meet_id, event_number, heat_number);
+            }
+        });
+        callback(null, entryId);
+    };
+
+    if (is_dq) {
+        db.get(
+            `SELECT id, raw_time, time_ms
+             FROM time_entries
+             WHERE meet_id = ? AND event_number = ? AND heat_number = ? AND lane = ? AND is_dq = 1
+             ORDER BY id DESC
+             LIMIT 1`,
+            [meet_id, event_number, heat_number, lane],
+            (findErr, existingDq) => {
+                if (findErr) return callback(findErr);
+
+                if (existingDq) {
+                    const rawTime = existingDq.raw_time !== null ? existingDq.raw_time : existingDq.time_ms;
+                    db.run(
+                        `UPDATE time_entries
+                         SET time_ms = ?, is_no_show = 0, swimmer_name = ?, is_dq = 1,
+                             dq_code = ?, dq_description = ?, official_initials = ?, raw_time = ?
+                         WHERE id = ?`,
+                        [
+                            time_ms || 0,
+                            swimmer_name || '',
+                            dq_code || null,
+                            dq_description || null,
+                            official_initials || null,
+                            rawTime,
+                            existingDq.id
+                        ],
+                        function (updateErr) {
+                            if (updateErr) return callback(updateErr);
+                            finish(existingDq.id);
+                        }
+                    );
+                    return;
+                }
+
+                db.run(
+                    `INSERT INTO time_entries (
+                        meet_id, event_number, heat_number, lane, time_ms, is_no_show, swimmer_name, is_dq, dq_code, dq_description, official_initials
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [
+                        meet_id,
+                        event_number,
+                        heat_number,
+                        lane,
+                        time_ms || 0,
+                        0,
+                        swimmer_name || '',
+                        1,
+                        dq_code || null,
+                        dq_description || null,
+                        official_initials || null
+                    ],
+                    function (insertErr) {
+                        if (insertErr) return callback(insertErr);
+                        finish(this.lastID);
+                    }
+                );
+            }
+        );
+        return;
+    }
+
+    db.run(
+        `INSERT INTO time_entries (
+            meet_id, event_number, heat_number, lane, time_ms, is_no_show, swimmer_name, is_dq, dq_code, dq_description, official_initials
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [
+            meet_id,
+            event_number,
+            heat_number,
+            lane,
+            time_ms || 0,
+            is_no_show ? 1 : 0,
+            swimmer_name || '',
+            0,
+            null,
+            null,
+            null
+        ],
+        function (err) {
+            if (err) return callback(err);
+            finish(this.lastID);
+        }
+    );
+}
+
 // Preload DQ Codes
 const dqCodesPath = path.join(__dirname, 'utils/maestro/dq_codes.json');
 let dqCodes = {};
@@ -74,36 +219,72 @@ app.post('/api/times', (req, res) => {
         return res.status(400).json({ error: 'Missing required fields (Meet ID, Event, Heat, Lane)' });
     }
 
-    const sql = `
-        INSERT INTO time_entries (
-            meet_id, event_number, heat_number, lane, time_ms, is_no_show, swimmer_name, is_dq, dq_code, dq_description, official_initials
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    `;
-    const params = [
-        meet_id, event_number, heat_number, lane, time_ms || 0, is_no_show ? 1 : 0, swimmer_name || '',
-        is_dq ? 1 : 0, dq_code || null, dq_description || null, official_initials || null
-    ];
-
-    db.run(sql, params, function (err) {
+    saveTimeEntry({
+        meet_id,
+        event_number,
+        heat_number,
+        lane,
+        time_ms,
+        is_no_show,
+        swimmer_name,
+        is_dq,
+        dq_code,
+        dq_description,
+        official_initials
+    }, (err, entryId) => {
         if (err) {
             console.error('[POST /api/times] DB Error:', err.message);
-            res.status(500).json({ error: err.message });
-            return;
+            return res.status(500).json({ error: err.message });
         }
-        console.log('[POST /api/times] Success, ID:', this.lastID);
+        console.log('[POST /api/times] Success, ID:', entryId);
+        res.json({ id: entryId, success: true });
+    });
+});
 
-        // Fetch all times for this specific heat to write the comprehensive race file
-        db.all('SELECT * FROM time_entries WHERE meet_id = ? AND event_number = ? AND heat_number = ?', [meet_id, event_number, heat_number], (err, rows) => {
-            if (!err && rows) {
-                // Write the immutable race payload
-                writeRaceData(meet_id, 1, event_number, heat_number, rows);
+app.post('/api/official/submit-dq', (req, res) => {
+    const { meet_id, admin_pin, event_number, heat_number, lane, dq_code, dq_description, official_initials } = req.body;
 
-                // Also update the timing system configuration to heartbeat Maestro
-                writeTimingSystemConfig(meet_id, event_number, heat_number);
-            }
+    if (!meet_id || !event_number || !heat_number || !lane || !dq_code || !dq_description || !official_initials) {
+        return res.status(400).json({ error: 'Missing required fields for DQ submission' });
+    }
+
+    if (admin_pin === undefined || admin_pin === null || String(admin_pin).trim() === '') {
+        return res.status(401).json({ error: 'PIN required' });
+    }
+
+    db.get('SELECT id FROM meets WHERE id = ? AND admin_pin = ? LIMIT 1', [meet_id, String(admin_pin).trim()], (verifyErr, row) => {
+        if (verifyErr) return res.status(500).json({ error: verifyErr.message });
+        if (!row) return res.status(401).json({ error: 'Invalid PIN' });
+
+        saveTimeEntry({
+            meet_id,
+            event_number,
+            heat_number,
+            lane,
+            time_ms: 0,
+            is_no_show: false,
+            swimmer_name: '',
+            is_dq: true,
+            dq_code,
+            dq_description,
+            official_initials: String(official_initials).toUpperCase()
+        }, (saveErr, entryId) => {
+            if (saveErr) return res.status(500).json({ error: saveErr.message });
+            res.json({ success: true, id: entryId });
         });
+    });
+});
 
-        res.json({ id: this.lastID, success: true });
+app.post('/api/official/verify-pin', (req, res) => {
+    const { meet_id, admin_pin } = req.body;
+    if (!meet_id || admin_pin === undefined || admin_pin === null) {
+        return res.status(400).json({ error: 'Missing meet_id or admin_pin' });
+    }
+
+    db.get('SELECT id FROM meets WHERE id = ? AND admin_pin = ? LIMIT 1', [meet_id, String(admin_pin).trim()], (err, row) => {
+        if (err) return res.status(500).json({ error: err.message });
+        if (!row) return res.status(401).json({ error: 'Invalid PIN' });
+        res.json({ success: true });
     });
 });
 
@@ -200,11 +381,9 @@ app.post('/api/admin/meets', (req, res) => {
     const { name, org_id } = req.body;
     // Generate simple 6-char code
     const access_code = Math.random().toString(36).substring(2, 8).toUpperCase();
-    const admin_pin = Math.floor(100000 + Math.random() * 900000).toString(); // 6 digit PIN
-
-    db.run('INSERT INTO meets (org_id, name, access_code, admin_pin) VALUES (?, ?, ?, ?)', [org_id || 1, name, access_code, admin_pin], function (err) {
+    createMeetWithUniquePin({ orgId: org_id || 1, name, accessCode: access_code }, (err, created) => {
         if (err) return res.status(500).json({ error: err.message });
-        res.json({ id: this.lastID, access_code, admin_pin, name });
+        res.json({ id: created.id, access_code, admin_pin: created.admin_pin, name });
     });
 });
 
@@ -346,12 +525,11 @@ app.post('/api/maestro/upload', upload.fields([
         }
 
         const access_code = Math.random().toString(36).substring(2, 8).toUpperCase();
-        const admin_pin = Math.floor(100000 + Math.random() * 900000).toString();
 
-        db.run('INSERT INTO meets (org_id, name, access_code, admin_pin) VALUES (?, ?, ?, ?)', [1, meetName, access_code, admin_pin], function (err) {
-            if (err) return res.status(500).json({ error: err.message });
+        createMeetWithUniquePin({ orgId: 1, name: meetName, accessCode: access_code }, (createErr, created) => {
+            if (createErr) return res.status(500).json({ error: createErr.message });
 
-            const meetId = this.lastID;
+            const meetId = created.id;
             const meetDir = path.join(__dirname, `../maestro_data/${meetId}`);
 
             if (!fs.existsSync(meetDir)) fs.mkdirSync(meetDir, { recursive: true });
@@ -359,7 +537,7 @@ app.post('/api/maestro/upload', upload.fields([
             fs.writeFileSync(path.join(meetDir, 'meet_details.json'), meetDetailsFile.buffer);
             fs.writeFileSync(path.join(meetDir, 'session_summary.csv'), sessionSummaryFile.buffer);
 
-            res.json({ success: true, meet_id: meetId, name: meetName, access_code, admin_pin });
+            res.json({ success: true, meet_id: meetId, name: meetName, access_code, admin_pin: created.admin_pin });
         });
     } catch (err) {
         console.error(err);

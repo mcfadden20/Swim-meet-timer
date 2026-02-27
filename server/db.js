@@ -70,6 +70,10 @@ db.serialize(() => {
   db.run("ALTER TABLE time_entries ADD COLUMN official_initials TEXT", () => { });
   db.run("ALTER TABLE time_entries ADD COLUMN raw_time INTEGER", () => { });
 
+  db.run("CREATE INDEX IF NOT EXISTS idx_meets_admin_pin ON meets(admin_pin)");
+  db.run("CREATE UNIQUE INDEX IF NOT EXISTS idx_meets_admin_pin_unique ON meets(admin_pin) WHERE admin_pin IS NOT NULL");
+  db.run("CREATE INDEX IF NOT EXISTS idx_time_entries_dq_lookup ON time_entries(meet_id, event_number, heat_number, lane, is_dq)");
+
   // 4. Audit Logs
   db.run(`
     CREATE TABLE IF NOT EXISTS audit_logs (

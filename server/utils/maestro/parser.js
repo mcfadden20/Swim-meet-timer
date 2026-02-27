@@ -77,12 +77,20 @@ export const parseSessionSummary = (filePath) => {
                     grouped[row.eventNumber] = {
                         eventNumber: row.eventNumber,
                         eventDescription: row.eventDescription,
-                        heatCount: 0
+                        heatCount: 0,
+                        heats: []
                     };
                 }
                 if (row.heatNumber > grouped[row.eventNumber].heatCount) {
                     grouped[row.eventNumber].heatCount = row.heatNumber;
                 }
+                if (row.heatNumber > 0 && !grouped[row.eventNumber].heats.includes(row.heatNumber)) {
+                    grouped[row.eventNumber].heats.push(row.heatNumber);
+                }
+            });
+
+            Object.values(grouped).forEach((event) => {
+                event.heats.sort((a, b) => a - b);
             });
 
             // Convert map to array and maintain numeric sorting

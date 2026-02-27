@@ -43,6 +43,46 @@ export default function Stopwatch({ meetId }) {
         fetchMaestro();
     }, [meetId]);
 
+    const getEventOptionNumbers = () => {
+        if (!useMaestro || maestroEvents.length === 0) return [];
+        return maestroEvents.map(event => Number(event.eventNumber)).filter(Number.isFinite);
+    };
+
+    const getCurrentEvent = (targetEvent = eventNum) => {
+        return maestroEvents.find(event => Number(event.eventNumber) === Number(targetEvent));
+    };
+
+    const getHeatOptionsForEvent = (targetEvent = eventNum) => {
+        const event = getCurrentEvent(targetEvent);
+        if (!event) return [];
+
+        if (Array.isArray(event.heats) && event.heats.length > 0) {
+            return event.heats.map(Number).filter(Number.isFinite).sort((a, b) => a - b);
+        }
+
+        const heatCount = Number(event.heatCount) || 0;
+        return Array.from({ length: heatCount }, (_, index) => index + 1);
+    };
+
+    useEffect(() => {
+        if (!useMaestro || maestroEvents.length === 0) return;
+
+        const eventOptions = getEventOptionNumbers();
+        if (eventOptions.length === 0) return;
+
+        const nextEvent = eventOptions.includes(Number(eventNum)) ? Number(eventNum) : eventOptions[0];
+        if (nextEvent !== Number(eventNum)) {
+            setEventNum(nextEvent);
+            return;
+        }
+
+        const heatOptions = getHeatOptionsForEvent(nextEvent);
+        if (heatOptions.length === 0) return;
+        if (!heatOptions.includes(Number(heatNum))) {
+            setHeatNum(heatOptions[0]);
+        }
+    }, [useMaestro, maestroEvents, eventNum, heatNum]);
+
     const triggerHaptic = (pattern = 50) => { if (navigator.vibrate) navigator.vibrate(pattern); };
 
     const handleStart = () => {
@@ -64,22 +104,28 @@ export default function Stopwatch({ meetId }) {
         cancelAnimationFrame(rafRef.current);
     };
 
-    // Logic Fix: Robust Auto-Increment
     const advanceNextRace = () => {
-        const currentEvent = maestroEvents.find(e => Number(e.eventNumber) === Number(eventNum));
+        if (useMaestro && maestroEvents.length > 0) {
+            const eventOptions = getEventOptionNumbers();
+            const currentEventIndex = eventOptions.findIndex(e => e === Number(eventNum));
+            if (currentEventIndex === -1) return;
 
-        if (useMaestro && currentEvent) {
-            if (Number(heatNum) >= Number(currentEvent.heatCount)) {
-                const nextEventIdx = maestroEvents.findIndex(e => Number(e.eventNumber) === Number(eventNum)) + 1;
-                if (nextEventIdx < maestroEvents.length) {
-                    setEventNum(Number(maestroEvents[nextEventIdx].eventNumber));
+            const heatOptions = getHeatOptionsForEvent(Number(eventNum));
+            const currentHeatIndex = heatOptions.findIndex(h => h === Number(heatNum));
+            const isFinalHeat = currentHeatIndex !== -1 && currentHeatIndex === heatOptions.length - 1;
+
+            if (isFinalHeat) {
+                const nextEvent = eventOptions[currentEventIndex + 1];
+                if (Number.isFinite(nextEvent)) {
+                    setEventNum(nextEvent);
                     setHeatNum(1);
                 }
-            } else {
-                setHeatNum(prev => prev + 1);
+            } else if (currentHeatIndex !== -1) {
+                setHeatNum(heatOptions[currentHeatIndex + 1]);
+            } else if (heatOptions.length > 0) {
+                setHeatNum(heatOptions[0]);
             }
         } else {
-            // Standard generic auto increment (Assumes 5 heats per event for demo without Maestro, to test event roll-overs, or user can override)
             if (Number(heatNum) >= 5) {
                 setEventNum(prev => prev + 1);
                 setHeatNum(1);
@@ -157,105 +203,114 @@ export default function Stopwatch({ meetId }) {
         return `${min.toString().padStart(2, '0')}:${sec.toString().padStart(2, '0')}.${cs.toString().padStart(2, '0')}`;
     };
 
-    return (
-        <div className="flex flex-col gap-6 w-full max-w-md h-screen bg-[#1b1d21] p-6 font-sans text-white overflow-hidden box-border">
+    const eventOptions = useMaestro && maestroEvents.length > 0
+        ? getEventOptionNumbers()
+        : Array.from({ length: 200 }, (_, index) => index + 1);
 
-            {/* 6. READY TO START (Twice as big) */}
-            <div className={cn(
-                "w-full py-8 rounded-full text-[30px] font-black tracking-[0.2em] uppercase transition-all duration-500",
-                pushedInner,
-                isRunning ? "text-[#f25b2a] shadow-[inset_0_0_20px_#f25b2a66]" : "text-[#8F92A1]"
-            )}>
-                <div className="flex items-center justify-center gap-4">
-                    {isRunning && <span className="animate-ping h-3 w-3 rounded-full bg-[#f25b2a]" />}
-                    {isRunning ? "RACE ACTIVE" : (reviewMode ? "REVIEW" : (isNoShow ? "CONFIRM" : "READY TO START"))}
+    const heatOptions = useMaestro && maestroEvents.length > 0
+        ? getHeatOptionsForEvent(eventNum)
+        : Array.from({ length: 50 }, (_, index) => index + 1);
+
+    return (
+        <div className="w-screen h-screen bg-[#1b1d21] flex flex-col justify-between text-white font-sans overflow-hidden box-border">
+
+            {/* Header: Status Badge */}
+            <div className="shrink-0 px-6 pt-4">
+                <div className={cn(
+                    "w-full py-3 rounded-full text-lg font-black tracking-[0.15em] uppercase transition-all duration-500 text-center",
+                    pushedInner,
+                    isRunning ? "text-[#f25b2a] shadow-[inset_0_0_15px_#f25b2a66]" : "text-[#8F92A1]"
+                )}>
+                    <div className="flex items-center justify-center gap-2">
+                        {isRunning && <span className="animate-ping h-2 w-2 rounded-full bg-[#f25b2a]" />}
+                        {isRunning ? "RACE ACTIVE" : (reviewMode ? "REVIEW" : (isNoShow ? "CONFIRM" : "READY TO START"))}
+                    </div>
                 </div>
             </div>
 
-            {/* 4 & 5. SELECTORS (Twice as big) */}
-            <div className={cn("grid grid-cols-3 gap-6 p-8 rounded-[40px] bg-[#282a2f]", outerShadow)}>
-                {[{ label: 'Event', val: eventNum, set: setEventNum, max: 200 },
-                { label: 'Heat', val: heatNum, set: setHeatNum, max: 50 },
-                { label: 'Lane', val: laneNum, set: setLaneNum, max: 10, isLane: true }].map((item) => (
-                    <div key={item.label} className="flex flex-col items-center gap-4">
-                        <span className="text-[16px] text-[#8F92A1] font-black uppercase tracking-widest italic">{item.label}</span>
-                        {/* 4. Double height of number boxes */}
-                        <div className={cn("w-full py-10 rounded-[24px] bg-[#282a2f] flex items-center justify-center relative", pushedInner)}>
+            {/* Selectors: Event/Heat/Lane (Compressed Top) */}
+            <div className={cn("shrink-0 grid grid-cols-3 gap-3 px-6 py-3 rounded-[32px] bg-[#282a2f] mx-6 mt-3", outerShadow)}>
+                {[{ label: 'Event', val: eventNum, set: setEventNum, options: eventOptions },
+                { label: 'Heat', val: heatNum, set: setHeatNum, options: heatOptions },
+                { label: 'Lane', val: laneNum, set: setLaneNum, options: Array.from({ length: 10 }, (_, index) => index + 1), isLane: true }].map((item) => (
+                    <div key={item.label} className="flex flex-col items-center gap-2">
+                        <span className="text-[11px] text-[#8F92A1] font-black uppercase tracking-widest italic">{item.label}</span>
+                        <div className={cn("w-full py-4 rounded-[20px] bg-[#282a2f] flex items-center justify-center relative", pushedInner)}>
                             <select
                                 value={item.val}
                                 onChange={(e) => {
                                     item.set(Number(e.target.value));
                                     if (item.isLane) localStorage.setItem('swim-lane', e.target.value);
                                 }}
-                                className="bg-transparent text-4xl font-black text-[#f25b2a] outline-none w-full text-center appearance-none cursor-pointer z-10"
+                                className="bg-transparent text-2xl font-black text-[#f25b2a] outline-none w-full text-center appearance-none cursor-pointer z-10"
                             >
-                                {[...Array(item.max)].map((_, i) => <option key={i + 1} value={i + 1} className="bg-[#282a2f]">{i + 1}</option>)}
+                                {item.options.map((option) => <option key={option} value={option} className="bg-[#282a2f]">{option}</option>)}
                             </select>
                         </div>
                     </div>
                 ))}
             </div>
 
-            {/* TIMER DISPLAY */}
-            <div className="flex flex-col items-center justify-center py-2">
+            {/* Timer Display (Center, Flex-1) */}
+            <div className="flex-1 flex flex-col items-center justify-center px-6">
                 <span className={cn(
-                    "text-[6rem] font-mono font-black tracking-tighter tabular-nums leading-none",
+                    "text-[5.5rem] font-mono font-black tracking-tighter tabular-nums leading-none",
                     isNoShow ? "text-red-500/30 line-through" : "text-white"
                 )}>
                     {formatTime(elapsedTime)}
                 </span>
             </div>
 
-            {/* 3. MEGA START BUTTON (Increased height to match timer box) */}
-            <div className="flex-1 min-h-[300px] mb-4">
+            {/* Action Zone: Start/Stop & No Show (Dynamic Height) */}
+            <div className="shrink-0 px-6">
                 {!isNoShow ? (
                     <button
                         onClick={isRunning ? handleStop : (reviewMode ? handleSaveAndNext : handleStart)}
                         className={cn(
-                            "w-full h-full rounded-[50px] flex flex-col items-center justify-center gap-4 transition-all active:scale-95 touch-manipulation",
+                            "w-full py-5 rounded-[40px] flex flex-col items-center justify-center gap-2 transition-all active:scale-95 touch-manipulation shadow-[8px_8px_16px_#0e0f11,-8px_-8px_16px_#363940]",
                             isRunning ? "bg-[#1b1d21] border-4 border-[#f25b2a]" :
-                                (reviewMode ? accentGradient + " shadow-2xl" : `bg-[#282a2f] ${outerShadow}`)
+                                (reviewMode ? accentGradient : `bg-[#282a2f]`)
                         )}
                     >
                         {isRunning ? (
-                            <><Pause className="w-20 h-20 text-[#f25b2a]" /><span className="text-4xl font-black uppercase italic tracking-widest text-[#f25b2a]">STOP</span></>
+                            <><Pause className="w-12 h-12 text-[#f25b2a]" /><span className="text-xl font-black uppercase italic tracking-widest text-[#f25b2a]">STOP</span></>
                         ) : (reviewMode ? (
-                            <><Save className="w-20 h-20 text-white" /><span className="text-4xl font-black uppercase italic tracking-widest text-white">SAVE</span></>
+                            <><Save className="w-12 h-12 text-white" /><span className="text-xl font-black uppercase italic tracking-widest text-white">SAVE</span></>
                         ) : (
-                            <><Play className="w-24 h-24 text-[#f25b2a]" /><span className="text-5xl font-black uppercase italic tracking-widest text-[#f25b2a]">START</span></>
+                            <><Play className="w-14 h-14 text-[#f25b2a]" /><span className="text-2xl font-black uppercase italic tracking-widest text-[#f25b2a]">START</span></>
                         ))}
                     </button>
                 ) : (
-                    <button onClick={handleNoShowSave} className="w-full h-full rounded-[50px] border-4 border-red-500 bg-red-500/10 text-red-500">
-                        <span className="text-4xl font-black uppercase italic tracking-widest">CONFIRM NO SHOW</span>
+                    <button onClick={handleNoShowSave} className="w-full py-5 rounded-[40px] border-3 border-red-500 bg-red-500/10 text-red-500 flex items-center justify-center gap-2 transition-all active:scale-95 shadow-[8px_8px_16px_#0e0f11,-8px_-8px_16px_#363940]">
+                        <span className="text-lg font-black uppercase italic tracking-widest">CONFIRM NO SHOW</span>
                     </button>
                 )}
             </div>
 
-            {/* 2. DOUBLE HEIGHT UTILS */}
-            <div className="grid grid-cols-2 gap-6 pb-8">
+            {/* Utility Buttons: No Show Toggle & Reset (Bottom Locked, Safe Area) */}
+            <div className="shrink-0 grid grid-cols-3 gap-2 px-6 pb-10">
                 <button
                     onClick={() => setIsNoShow(!isNoShow)}
                     disabled={isRunning}
                     className={cn(
-                        "py-16 rounded-[24px] text-lg font-black uppercase tracking-widest transition-all",
+                        "flex-[3] py-3 rounded-[24px] text-sm font-black uppercase tracking-widest transition-all",
                         isNoShow ? accentGradient + " text-white" : `bg-[#282a2f] ${buttonShadow} text-[#8F92A1] active:${pushedInner}`,
-                        isRunning && "opacity-20"
+                        isRunning && "opacity-40"
                     )}
                 >
-                    {isNoShow ? "Cancel" : "Mark No Show"}
+                    {isNoShow ? "Cancel" : "No Show"}
                 </button>
 
                 <button
                     onClick={() => { if (confirm('Reset?')) { setElapsedTime(0); setIsRunning(false); setReviewMode(false); setIsNoShow(false); cancelAnimationFrame(rafRef.current); } }}
                     disabled={elapsedTime === 0 && !isRunning}
                     className={cn(
-                        "py-16 rounded-[24px] text-lg font-black uppercase tracking-widest flex items-center justify-center gap-3 transition-all",
+                        "flex-1 py-3 rounded-[24px] font-black uppercase text-xs tracking-widest flex items-center justify-center gap-1 transition-all",
                         `bg-[#282a2f] ${buttonShadow} text-[#8F92A1] active:${pushedInner}`,
-                        (elapsedTime === 0 && !isRunning) && "opacity-20"
+                        (elapsedTime === 0 && !isRunning) && "opacity-40"
                     )}
                 >
-                    <RotateCcw className="w-8 h-8" /> Reset
+                    <RotateCcw className="w-4 h-4" /> Reset
                 </button>
             </div>
         </div>

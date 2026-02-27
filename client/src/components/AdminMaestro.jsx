@@ -69,38 +69,38 @@ export default function AdminMaestro() {
     };
 
     return (
-        <div className="w-full h-screen bg-navy-900 text-slate-300 p-8 font-mono overflow-auto">
-            <header className="flex justify-between items-center pb-6 border-b border-navy-800 mb-8 max-w-4xl mx-auto">
+        <div className="w-screen h-screen bg-[#1b1d21] text-[#8F92A1] p-8 font-mono overflow-hidden" style={{ overflowY: 'auto' }}>
+            <header className="flex justify-between items-center pb-6 mb-8 max-w-6xl mx-auto px-8 bg-[#282a2f] rounded-[40px] py-6 shadow-[12px_12px_25px_#0e0f11,-12px_-12px_25px_#363940]">
                 <div className="flex items-center gap-4">
-                    <Link to="/admin" className="p-2 hover:bg-white/10 rounded-lg transition-colors">
-                        <ArrowLeft className="w-5 h-5 text-slate-400" />
+                    <Link to="/admin" className="p-2 hover:bg-white/10 rounded-full transition-colors">
+                        <ArrowLeft className="w-5 h-5 text-[#8F92A1]" />
                     </Link>
-                    <h1 className="text-2xl font-bold tracking-tight text-white">MAESTRO <span className="text-cyan-400">INTEGRATION</span></h1>
+                    <h1 className="text-2xl font-black tracking-widest text-white italic uppercase">Maestro <span className="text-[#f25b2a]">Integration</span></h1>
                 </div>
                 <button
                     onClick={fetchStatus}
                     disabled={loading}
-                    className="flex items-center gap-2 bg-navy-800 border border-white/10 text-white px-4 py-2 rounded-lg font-bold hover:bg-navy-700 disabled:opacity-50"
+                    className="flex items-center gap-2 bg-[#1b1d21] text-white px-4 py-2 rounded-full font-bold hover:bg-white/10 disabled:opacity-50 shadow-[6px_6px_12px_#0e0f11,-6px_-6px_12px_#363940] transition-colors"
                 >
-                    <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> REFRESH
+                    <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} /> Refresh
                 </button>
             </header>
 
-            <div className="max-w-4xl mx-auto space-y-6">
+            <div className="max-w-6xl mx-auto space-y-6">
 
                 {/* Cloud Sync Initial Setup */}
-                <div className="bg-navy-800 rounded-xl p-6 border border-cyan-400/30">
-                    <h2 className="text-sm font-bold text-cyan-400 uppercase tracking-widest mb-4">Initial Setup: Cloud Sync</h2>
-                    <p className="text-sm text-slate-400 mb-4">
+                <div className="bg-[#282a2f] rounded-[40px] p-8 shadow-[12px_12px_25px_#0e0f11,-12px_-12px_25px_#363940]">
+                    <h2 className="text-sm font-black text-[#f25b2a] uppercase tracking-[0.2em] mb-6 italic">Initial Setup: Cloud Sync</h2>
+                    <p className="text-sm text-[#8F92A1] mb-6">
                         Upload the Meet Maestro configuration files generated on your local laptop to initialize the meet result automation.
                     </p>
 
                     {uploadSuccess && status?.sessionSummary && (
-                        <div className="bg-green-900/40 border border-green-500/50 rounded-lg p-4 mb-4 flex items-center gap-3">
-                            <CheckCircle className="w-6 h-6 text-green-500" />
+                        <div className="bg-[#1b1d21]/50 border border-[#10B981]/50 rounded-[24px] p-4 mb-6 flex items-center gap-3 shadow-[inset_2px_2px_4px_#101214,inset_-2px_-2px_4px_#363940]">
+                            <CheckCircle className="w-6 h-6 text-[#10B981]" />
                             <div>
-                                <div className="text-sm font-bold text-green-400">Upload Successful!</div>
-                                <div className="text-xs text-slate-300 mt-1">
+                                <div className="text-sm font-bold text-[#10B981]">Upload Successful!</div>
+                                <div className="text-xs text-[#8F92A1] mt-1 font-mono">
                                     Loaded meet <strong>"{status.meetDetails?.meetName || "Meet"}"</strong> with <strong>{status.sessionSummary.length}</strong> events successfully configured.
                                 </div>
                             </div>
@@ -109,67 +109,67 @@ export default function AdminMaestro() {
 
                     <form onSubmit={handleFileUpload} className="space-y-4">
                         <div className="grid grid-cols-2 gap-4">
-                            <div className="bg-navy-900 p-4 border border-white/5 rounded-lg">
-                                <label className="block text-xs font-bold text-slate-500 mb-2">Upload session_summary.csv</label>
-                                <input type="file" name="session_summary" accept=".csv" className="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-navy-800 file:text-cyan-400 hover:file:bg-navy-700" />
+                            <div className="bg-[#1b1d21] p-6 rounded-[24px] shadow-[inset_4px_4px_8px_#101214,inset_-4px_-4px_8px_#363940]">
+                                <label className="block text-xs font-bold text-[#f25b2a] uppercase tracking-widest mb-3">Session Summary</label>
+                                <input type="file" name="session_summary" accept=".csv" className="w-full text-sm text-[#8F92A1] file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#282a2f] file:text-[#f25b2a] hover:file:bg-white/10" />
                             </div>
-                            <div className="bg-navy-900 p-4 border border-white/5 rounded-lg">
-                                <label className="block text-xs font-bold text-slate-500 mb-2">Upload meet_details.json</label>
-                                <input type="file" name="meet_details" accept=".json" className="w-full text-sm text-slate-400 file:mr-4 file:py-2 file:px-4 file:rounded file:border-0 file:text-sm file:font-semibold file:bg-navy-800 file:text-cyan-400 hover:file:bg-navy-700" />
+                            <div className="bg-[#1b1d21] p-6 rounded-[24px] shadow-[inset_4px_4px_8px_#101214,inset_-4px_-4px_8px_#363940]">
+                                <label className="block text-xs font-bold text-[#f25b2a] uppercase tracking-widest mb-3">Meet Details</label>
+                                <input type="file" name="meet_details" accept=".json" className="w-full text-sm text-[#8F92A1] file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-[#282a2f] file:text-[#f25b2a] hover:file:bg-white/10" />
                             </div>
                         </div>
-                        <div className="flex justify-between items-center">
-                            <button type="submit" disabled={uploading} className="bg-cyan-400 text-navy-900 px-6 py-2 rounded font-bold hover:bg-cyan-300 disabled:opacity-50">
-                                {uploading ? 'UPLOADING...' : 'UPLOAD FILES'}
+                        <div className="flex justify-between items-center mt-6">
+                            <button type="submit" disabled={uploading} className="bg-[linear-gradient(135deg,#f25b2a_0%,#e83323_100%)] text-white px-8 py-3 rounded-full font-black hover:shadow-[0_0_20px_#f25b2a66] disabled:opacity-50 transition-all shadow-[6px_6px_12px_#0e0f11,-6px_-6px_12px_#363940] italic uppercase tracking-widest">
+                                {uploading ? 'Uploading...' : 'Upload Files'}
                             </button>
-                            {uploadSuccess && <span className="text-green-400 font-bold flex items-center gap-2"><CheckCircle className="w-4 h-4" /> SUCCESS</span>}
+                            {uploadSuccess && <span className="text-[#10B981] font-bold flex items-center gap-2 font-mono"><CheckCircle className="w-4 h-4" /> SUCCESS</span>}
                         </div>
                     </form>
 
-                    <div className="border-t border-white/10 mt-6 pt-6 flex justify-between items-center">
+                    <div className="border-t border-[#363940] mt-8 pt-8 flex justify-between items-center">
                         <div>
-                            <h3 className="text-sm font-bold text-white mb-1">Live Sync Utility</h3>
-                            <p className="text-xs text-slate-400">Download the Meet Maestro Sync tool to keep the sync running automatically on your PC.</p>
+                            <h3 className="text-sm font-bold text-white mb-2 italic uppercase tracking-widest">Live Sync Utility</h3>
+                            <p className="text-xs text-[#8F92A1] font-mono">Download the Meet Maestro Sync tool to keep the sync running automatically on your PC.</p>
                         </div>
-                        <a href="/api/sync/download-tool" download className="bg-navy-700 text-white border border-white/20 px-4 py-2 flex items-center gap-2 rounded text-sm font-bold hover:bg-navy-600 transition-colors">
-                            Download Sync Bundle (.zip)
+                        <a href="/api/sync/download-tool" download className="bg-[linear-gradient(135deg,#f25b2a_0%,#e83323_100%)] text-white px-6 py-3 flex items-center gap-2 rounded-full text-sm font-black hover:shadow-[0_0_20px_#f25b2a66] transition-all italic uppercase tracking-widest shadow-[6px_6px_12px_#0e0f11,-6px_-6px_12px_#363940]">
+                            Download Sync
                         </a>
                     </div>
                 </div>
 
                 {/* System Status Card */}
-                <div className="bg-navy-800 rounded-xl p-6 border border-white/5">
-                    <h2 className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-4">Connection Status</h2>
+                <div className="bg-[#282a2f] rounded-[40px] p-8 shadow-[12px_12px_25px_#0e0f11,-12px_-12px_25px_#363940]">
+                    <h2 className="text-sm font-black text-[#f25b2a] uppercase tracking-[0.2em] mb-6 italic">Connection Status</h2>
 
                     <div className="grid grid-cols-2 gap-4">
-                        <div className="p-4 rounded-lg bg-navy-900 border border-white/5">
-                            <div className="flex items-center gap-3 mb-2">
-                                {status?.meetDetails ? <CheckCircle className="w-5 h-5 text-green-500" /> : <XCircle className="w-5 h-5 text-red-500" />}
-                                <span className="font-bold text-white">Meet Details</span>
+                        <div className="p-6 rounded-[24px] bg-[#1b1d21] shadow-[inset_4px_4px_8px_#101214,inset_-4px_-4px_8px_#363940]">
+                            <div className="flex items-center gap-3 mb-3">
+                                {status?.meetDetails ? <CheckCircle className="w-5 h-5 text-[#10B981]" /> : <XCircle className="w-5 h-5 text-[#EF4444]" />}
+                                <span className="font-bold text-white italic uppercase tracking-widest">Meet Details</span>
                             </div>
-                            <div className="text-sm text-slate-400">
+                            <div className="text-sm text-[#8F92A1] font-mono">
                                 {status?.meetDetails ? `Loaded: ${status.meetDetails.meetName}` : 'Waiting for meet_details.json'}
                             </div>
                         </div>
 
-                        <div className="p-4 rounded-lg bg-navy-900 border border-white/5">
-                            <div className="flex items-center gap-3 mb-2">
-                                {status?.sessionSummary?.length > 0 ? <CheckCircle className="w-5 h-5 text-green-500" /> : <XCircle className="w-5 h-5 text-red-500" />}
-                                <span className="font-bold text-white">Session Summary</span>
+                        <div className="p-6 rounded-[24px] bg-[#1b1d21] shadow-[inset_4px_4px_8px_#101214,inset_-4px_-4px_8px_#363940]">
+                            <div className="flex items-center gap-3 mb-3">
+                                {status?.sessionSummary?.length > 0 ? <CheckCircle className="w-5 h-5 text-[#10B981]" /> : <XCircle className="w-5 h-5 text-[#EF4444]" />}
+                                <span className="font-bold text-white italic uppercase tracking-widest">Session Summary</span>
                             </div>
-                            <div className="text-sm text-slate-400">
-                                {status?.sessionSummary?.length > 0 ? `Loaded: ${status.sessionSummary.length} Events Synced` : 'Waiting for session_summary.csv'}
+                            <div className="text-sm text-[#8F92A1] font-mono">
+                                {status?.sessionSummary?.length > 0 ? `Loaded: ${status.sessionSummary.length} events synced` : 'Waiting for session_summary.csv'}
                             </div>
                         </div>
                     </div>
                 </div>
 
                 {/* Local Network Instructions Card */}
-                <div className="bg-navy-800 rounded-xl p-6 border border-white/5">
-                    <h2 className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-4">Local Network Operation</h2>
-                    <ul className="list-disc list-inside space-y-2 text-sm text-slate-400">
-                        <li>The backend is actively monitoring the <code className="bg-navy-900 border border-white/10 px-1 py-0.5 rounded text-cyan-400">maestro_data/</code> directory.</li>
-                        <li>If running on your local laptop, point the Meet Maestro <strong>Data Directory</strong> to the absolute path of <code className="bg-navy-900 border border-white/10 px-1 py-0.5 rounded text-cyan-400">swim-meet-timer/maestro_data</code>.</li>
+                <div className="bg-[#282a2f] rounded-[40px] p-8 shadow-[12px_12px_25px_#0e0f11,-12px_-12px_25px_#363940]">
+                    <h2 className="text-sm font-black text-[#f25b2a] uppercase tracking-[0.2em] mb-6 italic">Local Network Operation</h2>
+                    <ul className="list-disc list-inside space-y-3 text-sm text-[#8F92A1] font-mono">
+                        <li>The backend is actively monitoring the <code className="bg-[#1b1d21] border border-[#363940] px-2 py-1 rounded-full text-[#f25b2a] font-mono">maestro_data/</code> directory.</li>
+                        <li>If running on your local laptop, point the Meet Maestro <strong>Data Directory</strong> to the absolute path of <code className="bg-[#1b1d21] border border-[#363940] px-2 py-1 rounded-full text-[#f25b2a] font-mono">swim-meet-timer/maestro_data</code>.</li>
                         <li>Click <strong>Write Configuration File</strong> in Maestro to generate the JSON files automatically.</li>
                     </ul>
                 </div>
