@@ -2,10 +2,10 @@
   "currentEvent": "1",
   "currentHeat": 1,
   "currentSessionNumber": 1,
-  "currentRaceNumber": 2,
+  "currentRaceNumber": 4,
   "protocolVersion": "1.2.3",
   "timingSystemType": "Swim Meet Timer",
   "timingSystemVersion": "1.0.0",
-  "updatedAt": "2026-02-27T00:19:13.155Z",
+  "updatedAt": "2026-02-28T12:11:13.090Z",
   "timersPerLaneCount": 1
 }

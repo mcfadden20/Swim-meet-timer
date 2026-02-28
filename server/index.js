@@ -171,6 +171,15 @@ try {
 app.use(cors());
 app.use(express.json());
 
+// QR Code Redirect Route (MUST be before static files)
+app.get('/qr', (req, res) => {
+    const redirectUrl = process.env.QR_REDIRECT_URL || 'http://localhost:5173/landing';
+    console.log(`[QR Redirect] QR_REDIRECT_URL env var: ${process.env.QR_REDIRECT_URL}`);
+    console.log(`[QR Redirect] Using URL: ${redirectUrl}`);
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.redirect(302, redirectUrl);
+});
+
 // Serve Static Frontend (Production)
 app.use(express.static(path.join(__dirname, '../client/dist')));
 

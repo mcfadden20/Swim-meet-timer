@@ -212,44 +212,73 @@ export default function Stopwatch({ meetId }) {
         : Array.from({ length: 50 }, (_, index) => index + 1);
 
     return (
-        <div className="w-screen h-screen bg-[#1b1d21] flex flex-col justify-between text-white font-sans overflow-hidden box-border">
+        <div className="w-full h-full bg-[#1b1d21] flex flex-col justify-between text-white font-sans overflow-hidden box-border">
 
             {/* Header: Status Badge */}
-            <div className="shrink-0 px-6 pt-4">
-                <div className={cn(
-                    "w-full py-3 rounded-full text-lg font-black tracking-[0.15em] uppercase transition-all duration-500 text-center",
-                    pushedInner,
-                    isRunning ? "text-[#f25b2a] shadow-[inset_0_0_15px_#f25b2a66]" : "text-[#8F92A1]"
-                )}>
-                    <div className="flex items-center justify-center gap-2">
-                        {isRunning && <span className="animate-ping h-2 w-2 rounded-full bg-[#f25b2a]" />}
-                        {isRunning ? "RACE ACTIVE" : (reviewMode ? "REVIEW" : (isNoShow ? "CONFIRM" : "READY TO START"))}
-                    </div>
-                </div>
-            </div>
+<div className="shrink-0 px-6 pt-4">
+  <div
+    className={cn(
+      "w-full min-h-[40px] rounded-full flex items-center justify-center text-3xl font-black tracking-[0.15em] uppercase transition-all duration-500",
+      pushedInner,
+      isRunning
+        ? "text-[#f25b2a] shadow-[inset_0_0_15px_#f25b2a66]"
+        : "text-[#8F92A1]"
+    )}
+  >
+    <div className="flex items-center justify-center gap-2">
+      {isRunning && (
+        <span className="animate-ping h-2 w-2 rounded-full bg-[#f25b2a]" />
+      )}
+      {isRunning
+        ? "RACE ACTIVE"
+        : reviewMode
+        ? "REVIEW"
+        : isNoShow
+        ? "CONFIRM"
+        : "READY TO START"}
+    </div>
+  </div>
+</div>
+
+
 
             {/* Selectors: Event/Heat/Lane (Compressed Top) */}
-            <div className={cn("shrink-0 grid grid-cols-3 gap-3 px-6 py-3 rounded-[32px] bg-[#282a2f] mx-6 mt-3", outerShadow)}>
-                {[{ label: 'Event', val: eventNum, set: setEventNum, options: eventOptions },
+            <div className={cn(
+            "shrink-0 grid grid-cols-3 gap-3 px-6 py-5 rounded-[32px] bg-[#282a2f] mx-6 mt-3",
+            outerShadow
+            )}>
+            {[{ label: 'Event', val: eventNum, set: setEventNum, options: eventOptions },
                 { label: 'Heat', val: heatNum, set: setHeatNum, options: heatOptions },
-                { label: 'Lane', val: laneNum, set: setLaneNum, options: Array.from({ length: 10 }, (_, index) => index + 1), isLane: true }].map((item) => (
-                    <div key={item.label} className="flex flex-col items-center gap-2">
-                        <span className="text-[11px] text-[#8F92A1] font-black uppercase tracking-widest italic">{item.label}</span>
-                        <div className={cn("w-full py-4 rounded-[20px] bg-[#282a2f] flex items-center justify-center relative", pushedInner)}>
-                            <select
-                                value={item.val}
-                                onChange={(e) => {
-                                    item.set(Number(e.target.value));
-                                    if (item.isLane) localStorage.setItem('swim-lane', e.target.value);
-                                }}
-                                className="bg-transparent text-2xl font-black text-[#f25b2a] outline-none w-full text-center appearance-none cursor-pointer z-10"
-                            >
-                                {item.options.map((option) => <option key={option} value={option} className="bg-[#282a2f]">{option}</option>)}
-                            </select>
-                        </div>
-                    </div>
-                ))}
+                { label: 'Lane', val: laneNum, set: setLaneNum, options: Array.from({ length: 10 }, (_, index) => index + 1), isLane: true }
+            ].map((item) => (
+                <div key={item.label} className="flex flex-col items-center gap-2">
+                <span className="text-[20px] text-[#8F92A1] font-black uppercase tracking-widest italic">
+                    {item.label}
+                </span>
+
+                <div className={cn(
+                    "w-full py-6 rounded-[20px] bg-[#282a2f] flex items-center justify-center relative",
+                    pushedInner
+                )}>
+                    <select
+                    value={item.val}
+                    onChange={(e) => {
+                        item.set(Number(e.target.value));
+                        if (item.isLane) localStorage.setItem('swim-lane', e.target.value);
+                    }}
+                    className="bg-transparent text-3xl font-black text-[#f25b2a] outline-none w-full text-center appearance-none cursor-pointer z-10"
+                    >
+                    {item.options.map((option) => (
+                        <option key={option} value={option} className="bg-[#282a2f]">
+                        {option}
+                        </option>
+                    ))}
+                    </select>
+                </div>
+                </div>
+            ))}
             </div>
+
 
             {/* Timer Display (Center, Flex-1) */}
             <div className="flex-1 flex flex-col items-center justify-center px-6">
@@ -267,10 +296,11 @@ export default function Stopwatch({ meetId }) {
                     <button
                         onClick={isRunning ? handleStop : (reviewMode ? handleSaveAndNext : handleStart)}
                         className={cn(
-                            "w-full py-5 rounded-[40px] flex flex-col items-center justify-center gap-2 transition-all active:scale-95 touch-manipulation shadow-[8px_8px_16px_#0e0f11,-8px_-8px_16px_#363940]",
+                            "w-full min-h-[140px] py-6 rounded-[40px] flex flex-col items-center justify-center gap-2 transition-all active:scale-95 touch-manipulation shadow-[8px_8px_16px_#0e0f11,-8px_-8px_16px_#363940]",
                             isRunning ? "bg-[#1b1d21] border-4 border-[#f25b2a]" :
                                 (reviewMode ? accentGradient : `bg-[#282a2f]`)
                         )}
+
                     >
                         {isRunning ? (
                             <><Pause className="w-12 h-12 text-[#f25b2a]" /><span className="text-xl font-black uppercase italic tracking-widest text-[#f25b2a]">STOP</span></>
@@ -288,7 +318,7 @@ export default function Stopwatch({ meetId }) {
             </div>
 
             {/* Utility Buttons: No Show Toggle & Reset (Bottom Locked, Safe Area) */}
-            <div className="shrink-0 grid grid-cols-3 gap-2 px-6 pb-10">
+            <div className="min-h-[72px] py-4 shrink-0 grid grid-cols-2 gap-2 px-6 pb-10">                
                 <button
                     onClick={() => setIsNoShow(!isNoShow)}
                     disabled={isRunning}

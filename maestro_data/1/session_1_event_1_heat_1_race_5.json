@@ -1,0 +1,195 @@
+{
+  "createdAt": "2026-02-28T12:11:13.089Z",
+  "protocolVersion": "1.2.3",
+  "lanes": [
+    {
+      "lane": 1,
+      "timer1": "00:00:10.837",
+      "isEmpty": false,
+      "isDq": false,
+      "dqCode": null,
+      "dqDescription": null,
+      "dqOfficial": null
+    },
+    {
+      "lane": 1,
+      "timer1": "00:00:01.009",
+      "isEmpty": false,
+      "isDq": false,
+      "dqCode": null,
+      "dqDescription": null,
+      "dqOfficial": null
+    },
+    {
+      "lane": 1,
+      "timer1": "00:00:00.597",
+      "isEmpty": false,
+      "isDq": false,
+      "dqCode": null,
+      "dqDescription": null,
+      "dqOfficial": null
+    },
+    {
+      "lane": 1,
+      "timer1": "00:00:01.880",
+      "isEmpty": false,
+      "isDq": false,
+      "dqCode": null,
+      "dqDescription": null,
+      "dqOfficial": null
+    },
+    {
+      "lane": 1,
+      "timer1": "00:00:02.411",
+      "isEmpty": false,
+      "isDq": false,
+      "dqCode": null,
+      "dqDescription": null,
+      "dqOfficial": null
+    },
+    {
+      "lane": 1,
+      "timer1": "00:00:01.960",
+      "isEmpty": false,
+      "isDq": false,
+      "dqCode": null,
+      "dqDescription": null,
+      "dqOfficial": null
+    },
+    {
+      "lane": 1,
+      "timer1": "00:00:03.862",
+      "isEmpty": false,
+      "isDq": false,
+      "dqCode": null,
+      "dqDescription": null,
+      "dqOfficial": null
+    },
+    {
+      "lane": 1,
+      "timer1": "00:00:04.568",
+      "isEmpty": false,
+      "isDq": false,
+      "dqCode": null,
+      "dqDescription": null,
+      "dqOfficial": null
+    },
+    {
+      "lane": 1,
+      "timer1": "00:00:02.304",
+      "isEmpty": false,
+      "isDq": false,
+      "dqCode": null,
+      "dqDescription": null,
+      "dqOfficial": null
+    },
+    {
+      "lane": 1,
+      "timer1": null,
+      "isEmpty": true,
+      "isDq": false,
+      "dqCode": null,
+      "dqDescription": null,
+      "dqOfficial": null
+    },
+    {
+      "lane": 1,
+      "timer1": "00:00:00.544",
+      "isEmpty": false,
+      "isDq": false,
+      "dqCode": null,
+      "dqDescription": null,
+      "dqOfficial": null
+    },
+    {
+      "lane": 1,
+      "timer1": "00:00:01.935",
+      "isEmpty": false,
+      "isDq": false,
+      "dqCode": null,
+      "dqDescription": null,
+      "dqOfficial": null
+    },
+    {
+      "lane": 1,
+      "timer1": "00:00:03.322",
+      "isEmpty": false,
+      "isDq": false,
+      "dqCode": null,
+      "dqDescription": null,
+      "dqOfficial": null
+    },
+    {
+      "lane": 1,
+      "timer1": "00:00:09.329",
+      "isEmpty": false,
+      "isDq": false,
+      "dqCode": null,
+      "dqDescription": null,
+      "dqOfficial": null
+    },
+    {
+      "lane": 1,
+      "timer1": "00:00:01.854",
+      "isEmpty": false,
+      "isDq": false,
+      "dqCode": null,
+      "dqDescription": null,
+      "dqOfficial": null
+    },
+    {
+      "lane": 2,
+      "timer1": "00:00:00.837",
+      "isEmpty": false,
+      "isDq": false,
+      "dqCode": null,
+      "dqDescription": null,
+      "dqOfficial": null
+    },
+    {
+      "lane": 2,
+      "timer1": null,
+      "isEmpty": true,
+      "isDq": false,
+      "dqCode": null,
+      "dqDescription": null,
+      "dqOfficial": null
+    },
+    {
+      "lane": 2,
+      "timer1": null,
+      "isEmpty": true,
+      "isDq": false,
+      "dqCode": null,
+      "dqDescription": null,
+      "dqOfficial": null
+    },
+    {
+      "lane": 2,
+      "timer1": "00:00:01.435",
+      "isEmpty": false,
+      "isDq": false,
+      "dqCode": null,
+      "dqDescription": null,
+      "dqOfficial": null
+    },
+    {
+      "lane": 2,
+      "timer1": "00:00:00.985",
+      "isEmpty": false,
+      "isDq": false,
+      "dqCode": null,
+      "dqDescription": null,
+      "dqOfficial": null
+    },
+    {
+      "lane": 2,
+      "timer1": null,
+      "isEmpty": true,
+      "isDq": false,
+      "dqCode": null,
+      "dqDescription": null,
+      "dqOfficial": null
+    }
+  ]
+}
