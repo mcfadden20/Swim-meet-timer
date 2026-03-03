@@ -137,7 +137,9 @@ async function startSyncLoop(apiUrl, accessCode, adminPin, targetDir) {
             const res = await request(url, { redirect: 'follow', credentials: 'include' }, 0, cookieJar);
 
             if (!res.ok) {
-                console.log(`API Error: ${res.status}`);
+                const location = res.headers?.location || res.headers?.Location;
+                const body = await res.text();
+                console.log(`API Error: ${res.status}${location ? ` -> ${location}` : ''}${body ? ` | body: ${body.slice(0,200)}` : ''}`);
                 return;
             }
 
@@ -183,7 +185,9 @@ async function startSyncLoop(apiUrl, accessCode, adminPin, targetDir) {
                 if (receiptRes.ok) {
                     console.log(` -> Acknowledged ${successfulWrites.length} files with DO Cloud.`);
                 } else {
-                    console.log(` -> Failed to send receipt (Status ${receiptRes.status}). Will retry next cycle.`);
+                    const loc = receiptRes.headers?.location || receiptRes.headers?.Location;
+                    const body = await receiptRes.text();
+                    console.log(` -> Failed to send receipt (Status ${receiptRes.status}${loc ? ` -> ${loc}` : ''}). Body: ${body.slice(0,200)}`);
                 }
             }
 
@@ -239,7 +243,9 @@ async function main() {
                 console.log("SUCCESS");
                 break;
             } else {
-                console.log(`FAILED (${res.status}). Check your Meet Code and PIN.`);
+                const loc = res.headers?.location || res.headers?.Location;
+                const body = await res.text();
+                console.log(`FAILED (${res.status}${loc ? ` -> ${loc}` : ''}). Body: ${body.slice(0,200)}`);
             }
         } catch (err) {
             console.log(`CONNECTION FAILED. Could not reach server (${apiUrl}).`);
