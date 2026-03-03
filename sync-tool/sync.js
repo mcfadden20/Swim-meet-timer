@@ -108,6 +108,7 @@ function request(url, options = {}, redirectCount = 0, cookieJar = []) {
             res.on('end', () => resolve({
                 ok: res.statusCode >= 200 && res.statusCode < 300,
                 status: res.statusCode,
+                headers: res.headers,
                 json: () => JSON.parse(data || '{}'),
                 text: () => data
             }));
@@ -120,6 +121,7 @@ function request(url, options = {}, redirectCount = 0, cookieJar = []) {
 }
 
 async function startSyncLoop(apiUrl, accessCode, adminPin, targetDir) {
+    const cookieJar = [];
     console.log(`\n===========================================`);
     console.log(`[SYNCHRONIZER ACTIVE]`);
     console.log(`Target Directory: ${targetDir}`);
@@ -132,7 +134,7 @@ async function startSyncLoop(apiUrl, accessCode, adminPin, targetDir) {
         process.stdout.write(`[${new Date().toLocaleTimeString()}] Checking for new times... `);
         try {
             const url = `${apiUrl}/api/sync/pending-files?access_code=${accessCode}&admin_pin=${adminPin}`;
-            const res = await request(url, { redirect: 'follow', credentials: 'include' });
+            const res = await request(url, { redirect: 'follow', credentials: 'include' }, 0, cookieJar);
 
             if (!res.ok) {
                 console.log(`API Error: ${res.status}`);
@@ -176,7 +178,7 @@ async function startSyncLoop(apiUrl, accessCode, adminPin, targetDir) {
                         admin_pin: adminPin,
                         filenames: successfulWrites
                     })
-                });
+                }, 0, cookieJar);
 
                 if (receiptRes.ok) {
                     console.log(` -> Acknowledged ${successfulWrites.length} files with DO Cloud.`);
@@ -232,7 +234,7 @@ async function main() {
         process.stdout.write("Verifying credentials... ");
         try {
             const url = `${apiUrl}/api/sync/verify-auth?access_code=${accessCode.trim()}&admin_pin=${adminPin.trim()}`;
-            const res = await request(url, { redirect: 'follow', credentials: 'include' });
+            const res = await request(url, { redirect: 'follow', credentials: 'include' }, 0, cookieJar);
             if (res.ok) {
                 console.log("SUCCESS");
                 break;

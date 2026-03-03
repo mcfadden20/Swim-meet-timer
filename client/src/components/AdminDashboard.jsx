@@ -78,6 +78,7 @@ export default function AdminDashboard() {
             dq_code: res.dq_code || '',
             dq_description: res.dq_description || '',
             official_initials: res.official_initials || '',
+            admin_initials: '',
             is_no_show: !!res.is_no_show,
         });
     };
@@ -96,6 +97,7 @@ export default function AdminDashboard() {
                 dq_description: isDQ ? (editValues.dq_description || null) : null,
                 official_initials: isDQ ? (editValues.official_initials || null) : null,
                 is_no_show: !!editValues.is_no_show,
+                admin_initials: (editValues.admin_initials || '').trim(),
             };
             const response = await fetch(`/api/times/${id}`, {
                 method: 'PUT',
@@ -105,6 +107,9 @@ export default function AdminDashboard() {
             if (response.ok) {
                 setEditingId(null);
                 fetchResults(selectedMeet.id);
+            } else {
+                const errText = await response.text();
+                alert(`Save failed: ${response.status} ${errText}`);
             }
         } catch (e) { console.error('Save error', e); }
     };
@@ -241,6 +246,16 @@ export default function AdminDashboard() {
                                                                 <div className="flex gap-4">
                                                                     <label className="flex items-center gap-2 text-[9px] uppercase tracking-widest text-[#8F92A1] font-black"><input type="checkbox" checked={!!editValues.is_dq} onChange={(e) => setEditValues({ ...editValues, is_dq: e.target.checked, is_no_show: e.target.checked ? false : !!editValues.is_no_show })} /> DQ</label>
                                                                     <label className="flex items-center gap-2 text-[9px] uppercase tracking-widest text-[#8F92A1] font-black"><input type="checkbox" checked={!!editValues.is_no_show} onChange={(e) => setEditValues({ ...editValues, is_no_show: e.target.checked, is_dq: e.target.checked ? false : !!editValues.is_dq })} /> NO SHOW</label>
+                                                                </div>
+                                                                <div className="flex flex-wrap gap-3 w-full justify-end">
+                                                                    {editValues.is_dq && (
+                                                                        <>
+                                                                            <input type="text" placeholder="DQ Code" className={`w-24 bg-[#282a2f] ${pushedInner} rounded-xl px-3 py-2 text-white font-mono text-xs`} value={editValues.dq_code} onChange={(e) => setEditValues({ ...editValues, dq_code: e.target.value })} />
+                                                                            <input type="text" placeholder="DQ Description" className={`w-40 bg-[#282a2f] ${pushedInner} rounded-xl px-3 py-2 text-white font-mono text-xs`} value={editValues.dq_description} onChange={(e) => setEditValues({ ...editValues, dq_description: e.target.value })} />
+                                                                            <input type="text" placeholder="Official Initials" className={`w-28 bg-[#282a2f] ${pushedInner} rounded-xl px-3 py-2 text-white font-mono text-xs`} value={editValues.official_initials} onChange={(e) => setEditValues({ ...editValues, official_initials: e.target.value })} />
+                                                                        </>
+                                                                    )}
+                                                                    <input type="text" placeholder="Admin Initials (required)" className={`w-40 bg-[#282a2f] ${pushedInner} rounded-xl px-3 py-2 text-white font-mono text-xs`} value={editValues.admin_initials || ''} onChange={(e) => setEditValues({ ...editValues, admin_initials: e.target.value })} />
                                                                 </div>
                                                             </div>
                                                         ) : (
