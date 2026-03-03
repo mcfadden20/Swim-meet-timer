@@ -308,8 +308,14 @@ app.put('/api/times/:id', (req, res) => {
         is_dq,
         dq_code,
         dq_description,
-        official_initials
+        official_initials,
+        admin_initials
     } = req.body;
+
+    const normalizedAdminInitials = String(admin_initials || '').trim().toUpperCase();
+    if (!normalizedAdminInitials) {
+        return res.status(400).json({ error: 'admin_initials is required' });
+    }
 
     db.get('SELECT * FROM time_entries WHERE id = ?', [timeId], (err, row) => {
         if (err) return res.status(500).json({ error: err.message });
@@ -328,38 +334,67 @@ app.put('/api/times/:id', (req, res) => {
         // If this is the FIRST time it's being edited, stash the original time into raw_time
         const rawTime = row.raw_time !== null ? row.raw_time : row.time_ms;
 
-        db.run(
-            `UPDATE time_entries
-             SET event_number = ?, heat_number = ?, lane = ?, time_ms = ?, is_no_show = ?,
-                 is_dq = ?, dq_code = ?, dq_description = ?, official_initials = ?, raw_time = ?
-             WHERE id = ?`,
-            [
-                nextEventNumber,
-                nextHeatNumber,
-                nextLane,
-                nextTimeMs,
-                nextIsNoShow,
-                nextIsDq,
-                nextDqCode,
-                nextDqDescription,
-                nextOfficialInitials,
-                rawTime,
-                timeId
-            ],
-            function (updateErr) {
-                if (updateErr) return res.status(500).json({ error: updateErr.message });
+        const previousPayload = { ...row };
+        const nextPayload = {
+            ...row,
+            event_number: nextEventNumber,
+            heat_number: nextHeatNumber,
+            lane: nextLane,
+            time_ms: nextTimeMs,
+            is_no_show: nextIsNoShow,
+            is_dq: nextIsDq,
+            dq_code: nextDqCode,
+            dq_description: nextDqDescription,
+            official_initials: nextOfficialInitials,
+            raw_time: rawTime
+        };
 
-                // Rewrite the Maestro race file indicating a revision
-                db.all('SELECT * FROM time_entries WHERE meet_id = ? AND event_number = ? AND heat_number = ?', [row.meet_id, nextEventNumber, nextHeatNumber], (fetchErr, allRows) => {
-                    if (!fetchErr && allRows) {
-                        writeRaceData(row.meet_id, 1, nextEventNumber, nextHeatNumber, allRows, undefined, true);
-                        writeTimingSystemConfig(row.meet_id, nextEventNumber, nextHeatNumber);
-                    }
-                });
+        db.serialize(() => {
+            db.run(
+                `INSERT INTO edit_logs (time_entry_id, meet_id, admin_initials, previous_payload, next_payload)
+                 VALUES (?, ?, ?, ?, ?)`,
+                [timeId, row.meet_id, normalizedAdminInitials, JSON.stringify(previousPayload), JSON.stringify(nextPayload)],
+                function (logErr) {
+                    if (logErr) return res.status(500).json({ error: logErr.message });
+                    const editLogId = this.lastID;
 
-                res.json({ success: true, updated_id: timeId, raw_time_saved: rawTime });
-            }
-        );
+                    db.run(
+                        `UPDATE time_entries
+                         SET event_number = ?, heat_number = ?, lane = ?, time_ms = ?, is_no_show = ?,
+                             is_dq = ?, dq_code = ?, dq_description = ?, official_initials = ?, raw_time = ?
+                         WHERE id = ?`,
+                        [
+                            nextEventNumber,
+                            nextHeatNumber,
+                            nextLane,
+                            nextTimeMs,
+                            nextIsNoShow,
+                            nextIsDq,
+                            nextDqCode,
+                            nextDqDescription,
+                            nextOfficialInitials,
+                            rawTime,
+                            timeId
+                        ],
+                        function (updateErr) {
+                            if (updateErr) return res.status(500).json({ error: updateErr.message });
+
+                            db.run('UPDATE meets SET updated_at = CURRENT_TIMESTAMP WHERE id = ?', [row.meet_id]);
+
+                            // Rewrite the Maestro race file indicating a revision
+                            db.all('SELECT * FROM time_entries WHERE meet_id = ? AND event_number = ? AND heat_number = ?', [row.meet_id, nextEventNumber, nextHeatNumber], (fetchErr, allRows) => {
+                                if (!fetchErr && allRows) {
+                                    writeRaceData(row.meet_id, 1, nextEventNumber, nextHeatNumber, allRows, undefined, true);
+                                    writeTimingSystemConfig(row.meet_id, nextEventNumber, nextHeatNumber);
+                                }
+                            });
+
+                            res.json({ success: true, updated_id: timeId, raw_time_saved: rawTime, edit_log_id: editLogId });
+                        }
+                    );
+                }
+            );
+        });
     });
 });
 
@@ -404,7 +439,7 @@ app.get('/api/admin/meets/:id/results', (req, res) => {
     db.all(`
         SELECT * FROM time_entries 
         WHERE meet_id = ? AND id > ? 
-        ORDER BY created_at DESC
+        ORDER BY event_number, heat_number, lane, id
     `, [meetId, since], (err, rows) => {
         if (err) return res.status(500).json({ error: err.message });
         res.json({ results: rows });
@@ -412,7 +447,7 @@ app.get('/api/admin/meets/:id/results', (req, res) => {
 });
 
 // --- Public API ---
-app.get('/api/export', (req, res) => {
+const sendCsvExport = (req, res) => {
     const meetId = req.query.meet_id;
     if (!meetId) return res.status(400).send('Missing meet_id');
 
@@ -434,7 +469,7 @@ app.get('/api/export', (req, res) => {
                 row.event_number,
                 row.heat_number,
                 row.lane,
-                `"${row.swimmer_name || ''}"`, // Quote name for CSV safety
+                `"${row.swimmer_name || ''}"`,
                 formattedTime,
                 row.is_no_show ? 'NO SHOW' : 'OK',
                 row.created_at
@@ -443,13 +478,16 @@ app.get('/api/export', (req, res) => {
 
         const csvContent = [headers.join(','), ...csvRows].join('\n');
 
-        res.header('Content-Type', 'text/csv');
-        res.attachment('swim-meet-results.csv');
-        res.send(csvContent);
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', 'attachment; filename="swim-meet-results.csv"');
+        res.status(200).send(csvContent);
     });
-});
+};
 
-app.get('/api/export/sd3', (req, res) => {
+app.get('/api/export', sendCsvExport);
+app.get('/api/export/csv', sendCsvExport);
+
+const sendSd3Export = (req, res) => {
     const meetId = req.query.meet_id;
     if (!meetId) return res.status(400).send('Missing meet_id');
 
@@ -460,12 +498,15 @@ app.get('/api/export/sd3', (req, res) => {
             if (err) return res.status(500).send('Error fetching entries');
 
             const sd3Content = generateSD3(meet, rows);
-            res.header('Content-Type', 'text/plain');
-            res.attachment(`${meet.name.replace(/\s+/g, '_')}.sd3`);
-            res.send(sd3Content);
+            const safeName = meet.name.replace(/\s+/g, '_');
+            res.setHeader('Content-Type', 'text/plain');
+            res.setHeader('Content-Disposition', `attachment; filename="${safeName}.sd3"`);
+            res.status(200).send(sd3Content);
         });
     });
-});
+};
+
+app.get('/api/export/sd3', sendSd3Export);
 
 app.get('/api/export/audit', (req, res) => {
     db.all('SELECT * FROM audit_logs ORDER BY server_timestamp DESC', [], (err, rows) => {
@@ -554,61 +595,77 @@ app.post('/api/maestro/upload', upload.fields([
     }
 });
 
-// 2. Sync Pending Files (Retrieves generated JSON files not yet downloaded)
-app.get('/api/sync/pending-files', (req, res) => {
-    const { access_code, admin_pin } = req.query;
+// Sync Auth Helper: redirects with 302 and disables caching to avoid stale host redirects
+const redirectSyncAuth = (res, accessCode, adminPin, reason = 'auth_required') => {
+    const params = new URLSearchParams();
+    if (accessCode) params.set('access_code', accessCode);
+    if (adminPin) params.set('admin_pin', adminPin);
+    params.set('reason', reason);
+
+    res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
+    return res.redirect(302, `/api/sync/verify-auth?${params.toString()}`);
+};
+
+const verifySyncAuth = (req, res, next) => {
+    const access_code = req.method === 'POST' ? req.body?.access_code : req.query?.access_code;
+    const admin_pin = req.method === 'POST' ? req.body?.admin_pin : req.query?.admin_pin;
+
     if (!access_code || !admin_pin) {
-        return res.status(400).json({ error: 'Missing access_code or admin_pin' });
+        return redirectSyncAuth(res, access_code, admin_pin, 'missing');
     }
 
     db.get('SELECT id FROM meets WHERE access_code = ? AND admin_pin = ?', [access_code, admin_pin], (err, row) => {
         if (err) return res.status(500).json({ error: err.message });
-        if (!row) return res.status(401).json({ error: 'Unauthorized: Invalid Meet Code or Admin PIN.' });
+        if (!row) return redirectSyncAuth(res, access_code, admin_pin, 'unauthorized');
 
-        // Use Isolated Directory
-        const meetDir = path.join(__dirname, `../maestro_data/${row.id}`);
-        if (!fs.existsSync(meetDir)) {
-            return res.json({ pending: [] });
-        }
+        req.syncMeetId = row.id;
+        next();
+    });
+};
 
-        const files = fs.readdirSync(meetDir).filter(f => f.startsWith('session_') && f.endsWith('.json'));
+// 2. Sync Pending Files (Retrieves generated JSON files not yet downloaded)
+app.get('/api/sync/pending-files', verifySyncAuth, (req, res) => {
+    const meetId = req.syncMeetId;
 
-        db.all('SELECT filename FROM maestro_sync_receipts_scoped WHERE meet_id = ?', [row.id], (err, syncedRows) => {
-            if (err) return res.status(500).json({ error: err.message });
+    const meetDir = path.join(__dirname, `../maestro_data/${meetId}`);
+    if (!fs.existsSync(meetDir)) {
+        return res.json({ pending: [] });
+    }
 
-            const syncedFiles = new Set(syncedRows.map(r => r.filename));
-            const pendingFilenames = files.filter(f => !syncedFiles.has(f));
+    const files = fs.readdirSync(meetDir).filter(f => f.startsWith('session_') && f.endsWith('.json'));
 
-            const payloads = pendingFilenames.map(filename => ({
-                filename,
-                content: JSON.parse(fs.readFileSync(path.join(meetDir, filename), 'utf8'))
-            }));
+    db.all('SELECT filename FROM maestro_sync_receipts_scoped WHERE meet_id = ?', [meetId], (err, syncedRows) => {
+        if (err) return res.status(500).json({ error: err.message });
 
-            res.json({ pending: payloads });
-        });
+        const syncedFiles = new Set(syncedRows.map(r => r.filename));
+        const pendingFilenames = files.filter(f => !syncedFiles.has(f));
+
+        const payloads = pendingFilenames.map(filename => ({
+            filename,
+            content: JSON.parse(fs.readFileSync(path.join(meetDir, filename), 'utf8'))
+        }));
+
+        res.json({ pending: payloads });
     });
 });
 
 // 3. Sync Receipt (Marks files as downloaded by the local Windows Sync Tool)
-app.post('/api/sync/receipt', (req, res) => {
-    const { access_code, admin_pin, filenames } = req.body;
-    if (!access_code || !admin_pin || !filenames || !Array.isArray(filenames)) {
+app.post('/api/sync/receipt', verifySyncAuth, (req, res) => {
+    const { filenames } = req.body;
+    if (!filenames || !Array.isArray(filenames)) {
         return res.status(400).json({ error: 'Invalid payload' });
     }
 
-    db.get('SELECT id FROM meets WHERE access_code = ? AND admin_pin = ?', [access_code, admin_pin], (err, row) => {
-        if (err) return res.status(500).json({ error: err.message });
-        if (!row) return res.status(401).json({ error: 'Unauthorized: Invalid Meet Code or Admin PIN.' });
+    const meetId = req.syncMeetId;
 
-        const stmt = db.prepare('INSERT OR IGNORE INTO maestro_sync_receipts_scoped (filename, meet_id) VALUES (?, ?)');
-        db.serialize(() => {
-            filenames.forEach(filename => {
-                stmt.run([filename, row.id]);
-            });
-            stmt.finalize((err) => {
-                if (err) return res.status(500).json({ error: err.message });
-                res.json({ success: true, marked: filenames.length });
-            });
+    const stmt = db.prepare('INSERT OR IGNORE INTO maestro_sync_receipts_scoped (filename, meet_id) VALUES (?, ?)');
+    db.serialize(() => {
+        filenames.forEach(filename => {
+            stmt.run([filename, meetId]);
+        });
+        stmt.finalize((err) => {
+            if (err) return res.status(500).json({ error: err.message });
+            res.json({ success: true, marked: filenames.length });
         });
     });
 });
@@ -648,6 +705,7 @@ app.get('/api/sync/verify-auth', (req, res) => {
     db.get('SELECT id FROM meets WHERE access_code = ? AND admin_pin = ?', [access_code, admin_pin], (err, row) => {
         if (err) return res.status(500).json({ error: err.message });
         if (!row) return res.status(401).json({ error: 'Unauthorized: Invalid Meet Code or Admin PIN.' });
+        res.set('Cache-Control', 'no-cache, no-store, must-revalidate');
         res.json({ success: true, meet_id: row.id });
     });
 });

@@ -58,22 +58,63 @@ End If
     });
 }
 
-// Minimal fetch polyfill for node < 18 or robust pkg support
-function request(url, options = {}) {
+// Minimal fetch polyfill for node < 18 with redirect + cookie support
+function request(url, options = {}, redirectCount = 0, cookieJar = []) {
+    const maxRedirects = 5;
+    const redirect = options.redirect || 'follow';
+    const credentials = options.credentials || 'include';
+    const method = (options.method || 'GET').toUpperCase();
+    const headers = { ...(options.headers || {}) };
+    const body = options.body;
+    const parsedUrl = new URL(url);
+
     return new Promise((resolve, reject) => {
-        const lib = url.startsWith('https') ? https : http;
-        const req = lib.request(url, options, (res) => {
+        const lib = parsedUrl.protocol === 'https:' ? https : http;
+        if (credentials === 'include' && cookieJar.length) {
+            headers['cookie'] = cookieJar.join('; ');
+        }
+
+        const req = lib.request(parsedUrl, { ...options, method, headers }, (res) => {
+            const setCookies = res.headers['set-cookie'];
+            if (credentials === 'include' && Array.isArray(setCookies)) {
+                setCookies.forEach(c => {
+                    const [cookie] = c.split(';');
+                    if (cookie && !cookieJar.includes(cookie)) {
+                        cookieJar.push(cookie);
+                    }
+                });
+            }
+
+            const shouldRedirect = [301, 302, 303, 307, 308].includes(res.statusCode) && res.headers.location;
+            if (redirect === 'follow' && shouldRedirect && redirectCount < maxRedirects) {
+                const nextUrl = new URL(res.headers.location, url).toString();
+                const nextHeaders = { ...headers };
+                const nextOptions = { ...options, headers: nextHeaders };
+
+                if ([301, 302, 303].includes(res.statusCode)) {
+                    nextOptions.method = 'GET';
+                    delete nextOptions.body;
+                    delete nextHeaders['content-length'];
+                    delete nextHeaders['Content-Length'];
+                    delete nextHeaders['content-type'];
+                    delete nextHeaders['Content-Type'];
+                }
+
+                return request(nextUrl, nextOptions, redirectCount + 1, cookieJar).then(resolve).catch(reject);
+            }
+
             let data = '';
             res.on('data', chunk => data += chunk);
             res.on('end', () => resolve({
                 ok: res.statusCode >= 200 && res.statusCode < 300,
                 status: res.statusCode,
-                json: () => JSON.parse(data),
+                json: () => JSON.parse(data || '{}'),
                 text: () => data
             }));
         });
+
         req.on('error', reject);
-        if (options.body) req.write(options.body);
+        if (body && ['POST', 'PUT', 'PATCH', 'DELETE'].includes(method)) req.write(body);
         req.end();
     });
 }
@@ -91,7 +132,7 @@ async function startSyncLoop(apiUrl, accessCode, adminPin, targetDir) {
         process.stdout.write(`[${new Date().toLocaleTimeString()}] Checking for new times... `);
         try {
             const url = `${apiUrl}/api/sync/pending-files?access_code=${accessCode}&admin_pin=${adminPin}`;
-            const res = await request(url);
+            const res = await request(url, { redirect: 'follow', credentials: 'include' });
 
             if (!res.ok) {
                 console.log(`API Error: ${res.status}`);
@@ -127,6 +168,8 @@ async function startSyncLoop(apiUrl, accessCode, adminPin, targetDir) {
             if (successfulWrites.length > 0) {
                 const receiptRes = await request(`${apiUrl}/api/sync/receipt`, {
                     method: 'POST',
+                    redirect: 'follow',
+                    credentials: 'include',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         access_code: accessCode,
@@ -189,7 +232,7 @@ async function main() {
         process.stdout.write("Verifying credentials... ");
         try {
             const url = `${apiUrl}/api/sync/verify-auth?access_code=${accessCode.trim()}&admin_pin=${adminPin.trim()}`;
-            const res = await request(url);
+            const res = await request(url, { redirect: 'follow', credentials: 'include' });
             if (res.ok) {
                 console.log("SUCCESS");
                 break;

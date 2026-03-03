@@ -29,12 +29,14 @@ db.serialize(() => {
       admin_pin TEXT, -- Used for 2-Tier Auth in Sync Tool
       is_active BOOLEAN DEFAULT 1,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY(org_id) REFERENCES organizations(id)
     )
   `);
 
   // Add admin_pin to existing DBs safely
   db.run("ALTER TABLE meets ADD COLUMN admin_pin TEXT", () => { });
+  db.run("ALTER TABLE meets ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP", () => { });
 
   // 3. Time Entries (Scoped to Meet)
   db.run(`
@@ -85,6 +87,22 @@ db.serialize(() => {
       server_timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
     )
   `);
+
+  db.run(`
+    CREATE TABLE IF NOT EXISTS edit_logs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      time_entry_id INTEGER NOT NULL,
+      meet_id INTEGER NOT NULL,
+      admin_initials TEXT NOT NULL,
+      previous_payload TEXT NOT NULL,
+      next_payload TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY(time_entry_id) REFERENCES time_entries(id),
+      FOREIGN KEY(meet_id) REFERENCES meets(id)
+    )
+  `);
+
+  db.run("CREATE INDEX IF NOT EXISTS idx_edit_logs_meet_entry ON edit_logs(meet_id, time_entry_id, created_at)");
 
   // 5. Maestro Sync Receipts
   db.run(`
