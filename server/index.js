@@ -15,12 +15,12 @@ const PORT = process.env.PORT || 3000;
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
 function generateUniqueAdminPin(callback, attempts = 0) {
-    if (attempts >= 100) {
-        callback(new Error('Unable to generate unique 4-digit admin PIN after multiple attempts.'));
+    if (attempts >= 200) {
+        callback(new Error('Unable to generate unique 6-digit admin PIN after multiple attempts.'));
         return;
     }
 
-    const pin = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+    const pin = String(Math.floor(Math.random() * 1000000)).padStart(6, '0');
     db.get('SELECT id FROM meets WHERE admin_pin = ? LIMIT 1', [pin], (err, row) => {
         if (err) return callback(err);
         if (!row) return callback(null, pin);

@@ -225,6 +225,12 @@ async function main() {
     }
     apiUrl = apiUrl.replace(/\/+$/, '');
 
+    // Auto-upgrade to HTTPS for DigitalOcean app domains to avoid 301s
+    if (/^http:\/\/.*\.ondigitalocean\.app/i.test(apiUrl)) {
+        apiUrl = apiUrl.replace(/^http:/i, 'https:');
+        console.log(`Upgraded server URL to HTTPS: ${apiUrl}`);
+    }
+
     let accessCode, adminPin;
     while (true) {
         accessCode = await question("Enter the 6-character Meet Code: ");

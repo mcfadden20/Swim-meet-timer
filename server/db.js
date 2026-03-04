@@ -38,6 +38,17 @@ db.serialize(() => {
   db.run("ALTER TABLE meets ADD COLUMN admin_pin TEXT", () => { });
   db.run("ALTER TABLE meets ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP", () => { });
 
+  // Ensure updated_at exists even if prior ALTER failed on deploys
+  db.all('PRAGMA table_info(meets)', (err, rows) => {
+    if (err) return;
+    const hasUpdated = rows.some(r => r.name === 'updated_at');
+    if (!hasUpdated) {
+      db.run('ALTER TABLE meets ADD COLUMN updated_at DATETIME', () => {
+        db.run('UPDATE meets SET updated_at = COALESCE(updated_at, CURRENT_TIMESTAMP)', () => { });
+      });
+    }
+  });
+
   // 3. Time Entries (Scoped to Meet)
   db.run(`
     CREATE TABLE IF NOT EXISTS time_entries (
